@@ -1,0 +1,3642 @@
+#!/usr/bin/env python3
+"""
+setup_project.py - Generador automático de estructura de carpetas
+para Hotel Kiosk AI siguiendo Arquitectura Hexagonal
+"""
+
+import os
+from pathlib import Path
+
+def create_directory_structure():
+    """Crea la estructura completa de directorios y archivos __init__.py"""
+    
+    # Estructura base del proyecto
+    structure = {
+        "app": {
+            "__init__.py": "",
+            "domain": {
+                "__init__.py": "",
+                "entities": {
+                    "__init__.py": "",
+                    "message.py": "",
+                    "hotel.py": "",
+                    "conversation.py": "",
+                },
+                "services": {
+                    "__init__.py": "",
+                    "assistant_service.py": "",
+                    "intent_service.py": "",
+                    "conversation_context.py": "",
+                }
+            },
+            "ports": {
+                "__init__.py": "",
+                "input": {
+                    "__init__.py": "",
+                    "audio_input_port.py": "",
+                },
+                "output": {
+                    "__init__.py": "",
+                    "llm_port.py": "",
+                    "stt_port.py": "",
+                    "tts_port.py": "",
+                    "knowledge_base_port.py": "",
+                }
+            }
+        },
+        "adapters": {
+            "__init__.py": "",
+            "utils": {
+                "__init__.py": "",
+                "resilience.py": "",
+            },
+            "input": {
+                "__init__.py": "",
+                "mic_listener": {
+                    "__init__.py": "",
+                    "vad_filter.py": "",
+                    "pyaudio_handler.py": "",
+                },
+                "mic_listener_adapter.py": "",
+            },
+            "output": {
+                "__init__.py": "",
+                "llm": {
+                    "__init__.py": "",
+                    "gemini_adapter.py": "",
+                    "openai_adapter.py": "",
+                },
+                "speech": {
+                    "__init__.py": "",
+                    "whisper_local_adapter.py": "",
+                    "elevenlabs_adapter.py": "",
+                    "pyttsx3_fallback_adapter.py": "",
+                },
+                "database": {
+                    "__init__.py": "",
+                    "chroma_adapter.py": "",
+                },
+                "external": {
+                    "__init__.py": "",
+                    "restaurant_booking_adapter.py": "",
+                },
+                "logging": {
+                    "__init__.py": "",
+                    "analytics_adapter.py": "",
+                }
+            }
+        },
+        "config": {
+            "__init__.py": "",
+            "settings.py": "",
+            "container.py": "",
+        },
+        "data": {
+            "chroma_db": {},
+            "temp_audio": {},
+        },
+        "logs": {},
+    }
+    
+    # Archivos raíz
+    root_files = {
+        "main.py": "",
+        "requirements.txt": "",
+        ".env.example": "",
+        ".gitignore": "",
+        "README.md": "",
+        "Dockerfile": "",
+    }
+    
+    def create_structure(base_path: Path, structure: dict):
+        """Recursivamente crea directorios y archivos"""
+        for name, content in structure.items():
+            path = base_path / name
+            
+            if isinstance(content, dict):
+                # Es un directorio
+                path.mkdir(parents=True, exist_ok=True)
+                print(f"✓ Creado directorio: {path}")
+                create_structure(path, content)
+            else:
+                # Es un archivo
+                if not path.exists():
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.touch()
+                    print(f"✓ Creado archivo: {path}")
+                else:
+                    print(f"⚠ Ya existe: {path}")
+    
+    # Crear estructura
+    print("\n" + "="*60)
+    print("🏗️  Generando estructura de proyecto Hotel Kiosk AI")
+    print("="*60 + "\n")
+    
+    base = Path.cwd()
+    
+    # Crear directorios del proyecto
+    create_structure(base, structure)
+    
+    # Crear archivos raíz
+    print("\n📄 Creando archivos raíz...")
+    for filename, content in root_files.items():
+        filepath = base / filename
+        if not filepath.exists():
+            filepath.touch()
+            print(f"✓ Creado: {filename}")
+        else:
+            print(f"⚠ Ya existe: {filename}")
+    
+    print("\n" + "="*60)
+    print("✅ Estructura de proyecto creada exitosamente")
+    print("="*60)
+    print("\n📁 Árbol de directorios generado:")
+    print("""
+hotel_kiosk_ai/
+├── app/
+│   ├── domain/
+│   │   ├── entities/
+│   │   │   ├── message.py
+│   │   │   ├── hotel.py
+│   │   │   └── conversation.py
+│   │   └── services/
+│   │       ├── assistant_service.py
+│   │       ├── intent_service.py
+│   │       └── conversation_context.py
+│   └── ports/
+│       ├── input/
+│       │   └── audio_input_port.py
+│       └── output/
+│           ├── llm_port.py
+│           ├── stt_port.py
+│           ├── tts_port.py
+│           └── knowledge_base_port.py
+├── adapters/
+│   ├── utils/
+│   │   └── resilience.py
+│   ├── input/
+│   │   ├── mic_listener/
+│   │   │   ├── vad_filter.py
+│   │   │   └── pyaudio_handler.py
+│   │   └── mic_listener_adapter.py
+│   └── output/
+│       ├── llm/
+│       ├── speech/
+│       ├── database/
+│       ├── external/
+│       └── logging/
+├── config/
+│   ├── settings.py
+│   └── container.py
+├── data/
+│   ├── chroma_db/
+│   └── temp_audio/
+├── logs/
+├── main.py
+├── requirements.txt
+├── .env.example
+└── Dockerfile
+    """)
+
+if __name__ == "__main__":
+    try:
+        create_directory_structure()
+        print("\n🎉 Proyecto listo para comenzar el desarrollo\n")
+        print("📌 Próximos pasos:")
+        print("   1. Revisar la estructura generada")
+        print("   2. Implementar las entidades de dominio")
+        print("   3. Definir los contratos (Ports)")
+        print("   4. Desarrollar los adaptadores")
+        print("   5. Configurar la inyección de dependencias")
+        
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+
+# ==============================================================================
+# app/domain/entities/message.py - Entidad Message (Python puro)
+# ==============================================================================
+
+from dataclasses import dataclass, field
+from enum import Enum
+from datetime import datetime
+from typing import Optional
+
+
+class MessageRole(Enum):
+    """Roles posibles en una conversación"""
+    USER = "user"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
+
+
+@dataclass
+class Message:
+    """
+    Representa un mensaje en la conversación.
+    Python puro, sin dependencias externas.
+    """
+    content: str
+    role: MessageRole
+    timestamp: datetime = field(default_factory=datetime.now)
+    audio_duration_ms: Optional[float] = None  # Para métricas
+
+
+@dataclass
+class HotelContext:
+    """
+    Contexto relevante del hotel obtenido de RAG.
+    Representa información extraída del vector store.
+    """
+    hotel_name: str
+    information: str  # Texto extraído
+    relevance_score: float  # 0.0 - 1.0
+    
+    def __post_init__(self):
+        """Validación"""
+        if not 0.0 <= self.relevance_score <= 1.0:
+            raise ValueError(f"relevance_score debe estar entre 0 y 1, recibido: {self.relevance_score}")
+
+
+@dataclass
+class AssistantResponse:
+    """
+    Respuesta estructurada del asistente.
+    Contiene la respuesta + metadatos.
+    """
+    text: str
+    context: Optional[HotelContext]
+    confidence: float  # 0.0 - 1.0 (Para futuro AI feedback)
+    processing_time_ms: float
+    
+    def __post_init__(self):
+        """Validación"""
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError(f"confidence debe estar entre 0 y 1, recibido: {self.confidence}")
+
+
+# ==============================================================================
+# app/domain/entities/hotel.py - Entidad Hotel (Python puro)
+# ==============================================================================
+
+from dataclasses import dataclass, field
+from typing import List
+
+
+@dataclass
+class Hotel:
+    """
+    Información estática del hotel.
+    Python puro, sin dependencias.
+    """
+    name: str
+    location: str
+    phone: str
+    email: str
+    check_in_time: str
+    check_out_time: str
+    amenities: List[str] = field(default_factory=list)
+    
+    def get_contact_info(self) -> str:
+        """Retorna información de contacto formateada"""
+        return f"{self.name} - Tel: {self.phone}, Email: {self.email}"
+    
+    def get_check_times(self) -> str:
+        """Retorna horarios de check-in/out"""
+        return f"Check-in: {self.check_in_time}, Check-out: {self.check_out_time}"
+
+
+# ==============================================================================
+# app/domain/entities/conversation.py - Entidad Conversation (Python puro)
+# ==============================================================================
+
+from dataclasses import dataclass, field
+from typing import List
+from datetime import datetime
+
+
+@dataclass
+class Conversation:
+    """
+    Gestiona el historial de conversación.
+    Python puro, sin dependencias.
+    """
+    session_id: str
+    messages: List[Message] = field(default_factory=list)
+    started_at: datetime = field(default_factory=datetime.now)
+    language: str = "es"
+    
+    def add_message(self, message: Message) -> None:
+        """Añade un mensaje al historial"""
+        self.messages.append(message)
+    
+    def get_recent_context(self, n: int = 5) -> str:
+        """
+        Retorna los últimos N mensajes como contexto para el LLM.
+        
+        Args:
+            n: Número de mensajes recientes a incluir
+            
+        Returns:
+            String con el historial formateado
+        """
+        recent = self.messages[-n:] if len(self.messages) > n else self.messages
+        
+        context = "\n".join([
+            f"{msg.role.value}: {msg.content}"
+            for msg in recent
+        ])
+        
+        return context
+    
+    def clear_history(self) -> None:
+        """Limpia el historial (para nueva conversación)"""
+        self.messages.clear()
+    
+    def get_message_count(self) -> int:
+        """Retorna el número total de mensajes"""
+        return len(self.messages)
+    
+    def get_duration_minutes(self) -> float:
+        """Calcula la duración de la conversación en minutos"""
+        if not self.messages:
+            return 0.0
+        
+        duration = datetime.now() - self.started_at
+        return duration.total_seconds() / 60.0
+
+# ==============================================================================
+# app/ports/output/llm_port.py - Contrato LLM
+# ==============================================================================
+
+from abc import ABC, abstractmethod
+from typing import Optional
+from dataclasses import dataclass
+
+
+@dataclass
+class LLMRequest:
+    """Request structure para el LLM"""
+    user_message: str
+    conversation_history: str
+    hotel_context: Optional[str] = None
+    language: str = "es"
+    max_tokens: int = 256
+
+
+@dataclass
+class LLMResponse:
+    """Response structure del LLM"""
+    text: str
+    model: str
+    tokens_used: int
+    latency_ms: float
+
+
+class LLMPort(ABC):
+    """
+    Contrato para cualquier LLM (Gemini, GPT, Local).
+    Define el comportamiento esperado sin acoplarse a tecnología.
+    """
+    
+    @abstractmethod
+    async def generate(self, request: LLMRequest) -> LLMResponse:
+        """
+        Genera una respuesta basada en el prompt.
+        
+        Args:
+            request: Solicitud con contexto y mensaje del usuario
+            
+        Returns:
+            Respuesta del LLM con texto y metadatos
+        """
+        pass
+    
+    @abstractmethod
+    async def health_check(self) -> bool:
+        """
+        Verifica disponibilidad del LLM.
+        
+        Returns:
+            True si el servicio está disponible
+        """
+        pass
+
+
+# ==============================================================================
+# app/ports/output/stt_port.py - Contrato Speech-to-Text
+# ==============================================================================
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+
+@dataclass
+class STTResponse:
+    """Response del Speech-to-Text"""
+    text: str
+    language: str
+    confidence: float  # 0.0 - 1.0
+    latency_ms: float
+
+
+class STTPort(ABC):
+    """
+    Contrato para Speech-to-Text (Whisper, Azure, Google).
+    Define comportamiento sin acoplar tecnología.
+    """
+    
+    @abstractmethod
+    async def transcribe(self, audio_bytes: bytes) -> STTResponse:
+        """
+        Transcribe audio a texto.
+        
+        Args:
+            audio_bytes: Audio en formato raw bytes (WAV)
+            
+        Returns:
+            Texto transcrito con metadatos
+        """
+        pass
+    
+    @abstractmethod
+    def set_language(self, language: str) -> None:
+        """
+        Configura el idioma de transcripción.
+        
+        Args:
+            language: Código ISO-639-1 (ej: "es", "en")
+        """
+        pass
+
+
+# ==============================================================================
+# app/ports/output/tts_port.py - Contrato Text-to-Speech
+# ==============================================================================
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Optional
+
+
+@dataclass
+class TTSRequest:
+    """Request para Text-to-Speech"""
+    text: str
+    language: str = "es"
+    voice_id: Optional[str] = None
+    speed: float = 1.0
+
+
+@dataclass
+class TTSResponse:
+    """Response del TTS"""
+    audio_bytes: bytes
+    duration_ms: float
+    latency_ms: float
+
+
+class TTSPort(ABC):
+    """
+    Contrato para Text-to-Speech (ElevenLabs, pyttsx3, Azure).
+    Define comportamiento sin acoplar tecnología.
+    """
+    
+    @abstractmethod
+    async def synthesize(self, request: TTSRequest) -> TTSResponse:
+        """
+        Sintetiza texto a audio.
+        
+        Args:
+            request: Solicitud con texto y configuración
+            
+        Returns:
+            Audio sintetizado con metadatos
+        """
+        pass
+    
+    @abstractmethod
+    async def health_check(self) -> bool:
+        """
+        Verifica disponibilidad del servicio TTS.
+        
+        Returns:
+            True si el servicio está disponible
+        """
+        pass
+
+
+# ==============================================================================
+# app/ports/output/knowledge_base_port.py - Contrato Base de Conocimiento
+# ==============================================================================
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import List
+
+
+@dataclass
+class KnowledgeBaseQuery:
+    """Query para la base de conocimiento"""
+    query_text: str
+    top_k: int = 3
+    min_score: float = 0.5
+
+
+@dataclass
+class KnowledgeBaseResult:
+    """Resultado de búsqueda en la base de conocimiento"""
+    content: str
+    score: float  # 0.0 - 1.0 (similaridad)
+    source: str
+
+
+class KnowledgeBasePort(ABC):
+    """
+    Contrato para la base de conocimiento vectorial (ChromaDB, Pinecone).
+    Define comportamiento RAG sin acoplar tecnología.
+    """
+    
+    @abstractmethod
+    async def search(self, query: KnowledgeBaseQuery) -> List[KnowledgeBaseResult]:
+        """
+        Busca información relevante en la base de conocimiento.
+        
+        Args:
+            query: Query con texto y parámetros de búsqueda
+            
+        Returns:
+            Lista de resultados ordenados por relevancia
+        """
+        pass
+    
+    @abstractmethod
+    async def add_documents(self, documents: List[str], metadata: dict) -> None:
+        """
+        Añade documentos a la base de conocimiento.
+        
+        Args:
+            documents: Lista de textos a indexar
+            metadata: Metadatos asociados a los documentos
+        """
+        pass
+    
+    @abstractmethod
+    def is_ready(self) -> bool:
+        """
+        Verifica si la KB está lista para usar.
+        
+        Returns:
+            True si está inicializada y lista
+        """
+        pass
+
+
+# ==============================================================================
+# app/ports/input/audio_input_port.py - Contrato Entrada de Audio
+# ==============================================================================
+
+from abc import ABC, abstractmethod
+from typing import Callable, Optional
+
+
+class AudioInputPort(ABC):
+    """
+    Contrato para captura de audio.
+    Define comportamiento sin acoplar tecnología (PyAudio, etc).
+    """
+    
+    @abstractmethod
+    def start_listening(self,
+                       on_audio_chunk: Callable[[bytes], None],
+                       on_silence_detected: Callable[[], None]) -> None:
+        """
+        Inicia la escucha de audio con callbacks.
+        
+        Args:
+            on_audio_chunk: Callback cuando se captura audio (streaming)
+            on_silence_detected: Callback cuando se detecta silencio (fin de discurso)
+        """
+        pass
+    
+    @abstractmethod
+    def stop_listening(self) -> None:
+        """Detiene la escucha de audio"""
+        pass
+    
+    @abstractmethod
+    def get_last_audio_chunk(self) -> Optional[bytes]:
+        """
+        Retorna el último chunk de audio capturado.
+        
+        Returns:
+            Audio bytes o None si no hay audio
+        """
+        Pass
+
+# ==============================================================================
+# app/domain/services/assistant_service.py - Orquestador Principal (CON INTENTS)
+# ==============================================================================
+
+import time
+from typing import Optional
+
+# Imports SOLO de domain y ports (Python puro, sin librerías externas)
+from app.domain.entities.conversation import Conversation
+from app.domain.entities.message import Message, MessageRole
+from app.ports.output.llm_port import LLMPort, LLMRequest
+from app.ports.output.stt_port import STTPort
+from app.ports.output.tts_port import TTSPort, TTSRequest
+from app.ports.output.knowledge_base_port import KnowledgeBasePort, KnowledgeBaseQuery
+from app.domain.services.intent_service import IntentService, Intent
+
+
+class AssistantService:
+    """
+    Orquestador principal del sistema CON ROUTING INTELIGENTE.
+    Implementa la lógica de negocio: Audio → Texto → Intent → Respuesta → Audio
+    
+    CORRECCIÓN CRÍTICA #3: Ahora usa IntentService para detectar intenciones
+    y enrutar a flujos especializados (reservas, check-in, etc).
+    
+    IMPORTANTE: Este servicio NO conoce detalles de implementación.
+    Solo trabaja con los contratos (Ports) y entidades (Domain).
+    """
+    
+    def __init__(self,
+                 llm_port: LLMPort,
+                 stt_port: STTPort,
+                 tts_port: TTSPort,
+                 kb_port: KnowledgeBasePort):
+        """
+        Constructor con inyección de dependencias.
+        
+        Args:
+            llm_port: Implementación del contrato LLM
+            stt_port: Implementación del contrato STT
+            tts_port: Implementación del contrato TTS
+            kb_port: Implementación del contrato Knowledge Base
+        """
+        self.llm_port = llm_port
+        self.stt_port = stt_port
+        self.tts_port = tts_port
+        self.kb_port = kb_port
+        self.conversation: Optional[Conversation] = None
+        
+        # NUEVO: Intent Service para routing inteligente
+        self.intent_service = IntentService()
+    
+    async def process_audio(self, audio_bytes: bytes) -> tuple[str, bytes]:
+        """
+        Flujo completo del sistema CON INTENT ROUTING:
+        1. STT: Audio → Texto
+        2. INTENT: Detecta intención del usuario
+        3. ROUTING: Según intent, elige flujo (info, reserva, check-in)
+        4. TTS: Texto → Audio
+        
+        Args:
+            audio_bytes: Audio capturado del micrófono
+            
+        Returns:
+            Tupla (texto_respuesta, audio_respuesta)
+            
+        Raises:
+            Exception: Si algún componente falla críticamente
+        """
+        start_time = time.time()
+        
+        try:
+            # ===================================================================
+            # PASO 1: Transcribir audio a texto (STT)
+            # ===================================================================
+            stt_response = await self.stt_port.transcribe(audio_bytes)
+            user_text = stt_response.text
+            
+            if not user_text.strip():
+                # Audio vacío o ininteligible
+                fallback_text = "No entendí bien lo que dijiste. ¿Podrías repetir?"
+                return fallback_text, b""
+            
+            print(f"🎤 Usuario: {user_text}")
+            
+            # Añadir mensaje del usuario al historial
+            if self.conversation:
+                self.conversation.add_message(
+                    Message(user_text, MessageRole.USER)
+                )
+            
+            # ===================================================================
+            # PASO 2: DETECTAR INTENCIÓN (NUEVO)
+            # ===================================================================
+            intent_result = self.intent_service.detect_intent(user_text)
+            print(f"🎯 Intent detectado: {intent_result.intent.value} (confianza: {intent_result.confidence:.2f})")
+            
+            # ===================================================================
+            # PASO 3: ROUTING SEGÚN INTENT
+            # ===================================================================
+            if intent_result.intent == Intent.GREETING:
+                # Saludo: Respuesta rápida sin RAG
+                assistant_text = await self._handle_greeting(user_text)
+                
+            elif intent_result.intent == Intent.BOOKING:
+                # Reserva: Flujo especializado
+                assistant_text = await self._handle_booking(user_text, intent_result.entities)
+                
+            elif intent_result.intent == Intent.CHECK_IN:
+                # Check-in: Flujo especializado
+                assistant_text = await self._handle_checkin(user_text)
+                
+            elif intent_result.intent == Intent.CONTACT:
+                # Contacto: Respuesta directa sin LLM
+                assistant_text = await self._handle_contact(user_text)
+                
+            else:
+                # INFO o UNKNOWN: Flujo estándar (RAG + LLM)
+                assistant_text = await self._handle_info(user_text)
+            
+            # Añadir respuesta del asistente al historial
+            if self.conversation:
+                self.conversation.add_message(
+                    Message(assistant_text, MessageRole.ASSISTANT)
+                )
+            
+            # ===================================================================
+            # PASO 4: Sintetizar respuesta a audio (TTS)
+            # ===================================================================
+            tts_response = await self.tts_port.synthesize(
+                TTSRequest(text=assistant_text, language="es")
+            )
+            
+            # Calcular latencia total
+            elapsed_ms = (time.time() - start_time) * 1000
+            print(f"✓ Procesamiento completo: {elapsed_ms:.1f}ms")
+            
+            return assistant_text, tts_response.audio_bytes
+            
+        except Exception as e:
+            print(f"✗ Error en process_audio: {e}")
+            raise
+    
+    # =========================================================================
+    # HANDLERS POR INTENT (Flujos Especializados)
+    # =========================================================================
+    
+    async def _handle_greeting(self, user_text: str) -> str:
+        """Maneja saludos sin necesidad de RAG/LLM"""
+        greetings = [
+            "¡Hola! Bienvenido a nuestro hotel. ¿En qué puedo ayudarte?",
+            "¡Buenos días! Soy tu asistente virtual. ¿Qué necesitas saber?",
+            "¡Hola! Estoy aquí para ayudarte con cualquier consulta sobre el hotel."
+        ]
+        import random
+        return random.choice(greetings)
+    
+    async def _handle_booking(self, user_text: str, entities: dict) -> str:
+        """Maneja reservas (ejemplo simplificado)"""
+        if entities.get("date") and entities.get("time"):
+            return (
+                f"Entendido, quieres reservar para el {entities['date']} a las {entities['time']}. "
+                f"¿Para cuántas personas?"
+            )
+        else:
+            return (
+                "Me gustaría ayudarte con la reserva. "
+                "¿Para qué fecha y hora necesitas?"
+            )
+    
+    async def _handle_checkin(self, user_text: str) -> str:
+        """Maneja check-in"""
+        return (
+            "Para realizar el check-in necesito tu número de reserva. "
+            "También puedes hacerlo directamente en recepción a partir de las 15:00."
+        )
+    
+    async def _handle_contact(self, user_text: str) -> str:
+        """Maneja consultas de contacto"""
+        return (
+            "Puedes contactarnos llamando al +34-XXX-XXXX o enviando un email a info@hotel.com. "
+            "Nuestra recepción está disponible 24/7."
+        )
+    
+    async def _handle_info(self, user_text: str) -> str:
+        """Flujo estándar: RAG + LLM para consultas de información"""
+        # Buscar contexto relevante (RAG)
+        kb_results = await self.kb_port.search(
+            KnowledgeBaseQuery(
+                query_text=user_text,
+                top_k=3,
+                min_score=0.5
+            )
+        )
+        
+        kb_context = "\n".join([r.content for r in kb_results])
+        
+        if kb_results:
+            print(f"📚 Contexto encontrado: {len(kb_results)} documentos")
+        
+        # Generar respuesta con LLM
+        conversation_history = ""
+        if self.conversation:
+            conversation_history = self.conversation.get_recent_context(5)
+        
+        llm_request = LLMRequest(
+            user_message=user_text,
+            conversation_history=conversation_history,
+            hotel_context=kb_context,
+            language="es"
+        )
+        
+        llm_response = await self.llm_port.generate(llm_request)
+        
+        print(f"🤖 Asistente: {llm_response.text}")
+        
+        return llm_response.text
+    
+    def set_conversation(self, conversation: Conversation) -> None:
+        """
+        Establece la conversación activa.
+        
+        Args:
+            conversation: Instancia de Conversation
+        """
+        self.conversation = conversation
+    
+    def get_conversation(self) -> Optional[Conversation]:
+        """
+        Retorna la conversación activa.
+        
+        Returns:
+            Conversación actual o None
+        """
+        return self.conversation
+
+
+# ==============================================================================
+# app/domain/services/intent_service.py - Detección de Intenciones
+# ==============================================================================
+
+from enum import Enum
+from dataclasses import dataclass
+import re
+
+
+class Intent(Enum):
+    """Intents soportados por el sistema"""
+    CHECK_IN = "check_in"
+    BOOKING = "booking"
+    CONTACT = "contact"
+    INFO = "info"  # Pregunta general
+    GREETING = "greeting"
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class IntentResult:
+    """Resultado de detección de intent"""
+    intent: Intent
+    confidence: float  # 0.0 - 1.0
+    entities: dict  # {entity_type: value}
+
+
+class IntentService:
+    """
+    Detecta intenciones del usuario usando patterns y/o ML.
+    Python puro, sin dependencias externas.
+    """
+    
+    def __init__(self):
+        # Patterns simples (regex) para cada intent
+        self.patterns = {
+            Intent.CHECK_IN: [
+                r"check.?in", r"entrada", r"registr", r"habitación"
+            ],
+            Intent.BOOKING: [
+                r"reserv", r"book", r"mesa", r"restaurante"
+            ],
+            Intent.CONTACT: [
+                r"teléfono", r"email", r"contacto", r"llamar"
+            ],
+            Intent.GREETING: [
+                r"hola", r"buenos", r"hi", r"hello", r"saludos"
+            ],
+        }
+    
+    def detect_intent(self, text: str) -> IntentResult:
+        """
+        Detecta intent de un texto.
+        
+        Args:
+            text: Mensaje del usuario
+            
+        Returns:
+            IntentResult con intent detectado y confianza
+        """
+        text_lower = text.lower()
+        scores = {}
+        
+        # Scoring basado en patterns
+        for intent, patterns in self.patterns.items():
+            score = 0
+            for pattern in patterns:
+                if re.search(pattern, text_lower):
+                    score += 1
+            scores[intent] = score
+        
+        # Encontrar intent con máximo score
+        if max(scores.values()) > 0:
+            best_intent = max(scores, key=scores.get)
+            confidence = min(scores[best_intent] / 2, 1.0)  # Normalizar
+        else:
+            best_intent = Intent.UNKNOWN
+            confidence = 0.0
+        
+        # Extraer entidades según el intent
+        entities = self._extract_entities(text_lower, best_intent)
+        
+        return IntentResult(
+            intent=best_intent,
+            confidence=confidence,
+            entities=entities
+        )
+    
+    def _extract_entities(self, text: str, intent: Intent) -> dict:
+        """
+        Extrae entidades según el intent.
+        
+        Args:
+            text: Texto en lowercase
+            intent: Intent detectado
+            
+        Returns:
+            Diccionario con entidades extraídas
+        """
+        entities = {}
+        
+        if intent == Intent.BOOKING:
+            # Buscar fechas (formato DD/MM)
+            date_match = re.search(r'(\d{1,2})[/-](\d{1,2})', text)
+            if date_match:
+                entities["date"] = f"{date_match.group(1)}/{date_match.group(2)}"
+            
+            # Buscar hora
+            time_match = re.search(r'(\d{1,2}):?(\d{2})?', text)
+            if time_match:
+                hour = time_match.group(1)
+                minute = time_match.group(2) or "00"
+                entities["time"] = f"{hour}:{minute}"
+            
+            # Buscar número de personas
+            party_match = re.search(r'(\d+)\s*(?:person|gente|comensales)', text)
+            if party_match:
+                entities["party_size"] = int(party_match.group(1))
+        
+        return entities
+
+
+# ==============================================================================
+# app/domain/services/conversation_context.py - Context Manager
+# ==============================================================================
+
+from typing import Dict, Any, Optional, List
+from datetime import datetime, timedelta
+
+
+class ConversationContext:
+    """
+    Maneja el contexto y estado de la conversación.
+    Python puro, sin dependencias.
+    """
+    
+    def __init__(self, session_id: str):
+        """
+        Constructor.
+        
+        Args:
+            session_id: ID único de la sesión
+        """
+        self.session_id = session_id
+        self.state: Dict[str, Any] = {}
+        self.created_at = datetime.now()
+        self.last_activity = datetime.now()
+        self.intent_history: List[Intent] = []
+    
+    def set_state(self, key: str, value: Any) -> None:
+        """
+        Guarda estado en el contexto.
+        
+        Args:
+            key: Clave del estado
+            value: Valor a guardar
+        """
+        self.state[key] = value
+        self.last_activity = datetime.now()
+    
+    def get_state(self, key: str, default: Any = None) -> Any:
+        """
+        Obtiene estado del contexto.
+        
+        Args:
+            key: Clave del estado
+            default: Valor por defecto si no existe
+            
+        Returns:
+            Valor guardado o default
+        """
+        return self.state.get(key, default)
+    
+    def is_expired(self, ttl_minutes: int = 30) -> bool:
+        """
+        Verifica si la sesión ha expirado.
+        
+        Args:
+            ttl_minutes: Tiempo de vida en minutos
+            
+        Returns:
+            True si la sesión expiró
+        """
+        return (datetime.now() - self.last_activity) > timedelta(minutes=ttl_minutes)
+    
+    def record_intent(self, intent: Intent) -> None:
+        """
+        Registra un intent para tracking.
+        
+        Args:
+            intent: Intent detectado
+        """
+        self.intent_history.append(intent)
+    
+    def get_session_summary(self) -> str:
+        """
+        Genera resumen de la sesión para logging.
+        
+        Returns:
+            String con resumen de la sesión
+        """
+        return (
+            f"Session {self.session_id}: "
+            f"{len(self.intent_history)} intents, "
+            f"state={self.state}"
+        )
+
+# ==============================================================================
+# adapters/utils/resilience.py - Circuit Breaker + Retry Logic
+# ==============================================================================
+
+import asyncio
+import time
+from functools import wraps
+from enum import Enum
+from typing import Callable, TypeVar, Any
+
+T = TypeVar('T')
+
+
+class CircuitState(Enum):
+    """Estados posibles del Circuit Breaker"""
+    CLOSED = "closed"        # Funcionando normalmente
+    OPEN = "open"            # En fallo, rechazar requests
+    HALF_OPEN = "half_open"  # Intentando recuperarse
+
+
+class CircuitBreaker:
+    """
+    Circuit Breaker para protección ante fallos de red.
+    
+    Implementa el patrón Circuit Breaker para prevenir cascadas de fallos:
+    - CLOSED: Todo funciona, requests pasan normalmente
+    - OPEN: Demasiados fallos, rechazar requests (fail fast)
+    - HALF_OPEN: Después del timeout, intentar 1 request de prueba
+    
+    Ejemplo:
+        breaker = CircuitBreaker(failure_threshold=3, recovery_timeout_s=30)
+        
+        if breaker.is_open():
+            raise RuntimeError("Circuit breaker abierto")
+        
+        try:
+            result = await call_api()
+            breaker.record_success()
+        except Exception:
+            breaker.record_failure()
+    """
+    
+    def __init__(self,
+                 failure_threshold: int = 3,
+                 recovery_timeout_s: int = 30,
+                 expected_exception: type = Exception):
+        """
+        Constructor.
+        
+        Args:
+            failure_threshold: Número de fallos consecutivos para abrir circuit
+            recovery_timeout_s: Segundos antes de intentar recuperación
+            expected_exception: Tipo de excepción a capturar
+        """
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout_s = recovery_timeout_s
+        self.expected_exception = expected_exception
+        
+        self.failure_count = 0
+        self.last_failure_time: float | None = None
+        self.state = CircuitState.CLOSED
+    
+    def is_open(self) -> bool:
+        """
+        Verifica si el circuit está abierto.
+        
+        Si está abierto y ha pasado el timeout de recuperación,
+        automáticamente transiciona a HALF_OPEN.
+        
+        Returns:
+            True si el circuit está abierto (rechazar requests)
+        """
+        if self.state == CircuitState.OPEN:
+            # Intentar transición a HALF_OPEN después del timeout
+            if self.last_failure_time is not None:
+                elapsed = time.time() - self.last_failure_time
+                if elapsed > self.recovery_timeout_s:
+                    print(f"🔄 Circuit Breaker: OPEN → HALF_OPEN (timeout {self.recovery_timeout_s}s alcanzado)")
+                    self.state = CircuitState.HALF_OPEN
+                    self.failure_count = 0
+                    return False
+            return True
+        
+        return False
+    
+    def record_failure(self) -> None:
+        """
+        Registra un fallo.
+        
+        Si se alcanza el threshold, abre el circuit.
+        """
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        
+        if self.failure_count >= self.failure_threshold:
+            print(f"⚠️ Circuit Breaker: {self.state.value} → OPEN ({self.failure_count} fallos)")
+            self.state = CircuitState.OPEN
+    
+    def record_success(self) -> None:
+        """
+        Registra un éxito.
+        
+        Resetea el contador de fallos y cierra el circuit.
+        """
+        if self.state == CircuitState.HALF_OPEN:
+            print(f"✓ Circuit Breaker: HALF_OPEN → CLOSED (recuperación exitosa)")
+        
+        self.failure_count = 0
+        self.state = CircuitState.CLOSED
+
+
+def retry_async(max_retries: int = 3,
+                initial_delay_s: float = 0.5,
+                max_delay_s: float = 5.0,
+                backoff_factor: float = 2.0):
+    """
+    Decorador de retry con backoff exponencial para funciones async.
+    
+    Implementa reintentos automáticos con espera creciente entre intentos:
+    - Intento 1: falla → espera 0.5s
+    - Intento 2: falla → espera 1.0s (0.5 * 2)
+    - Intento 3: falla → espera 2.0s (1.0 * 2)
+    - Intento 4: falla → lanza excepción
+    
+    Args:
+        max_retries: Número máximo de reintentos
+        initial_delay_s: Delay inicial en segundos
+        max_delay_s: Delay máximo en segundos (cap)
+        backoff_factor: Factor de multiplicación para backoff exponencial
+    
+    Ejemplo:
+        @retry_async(max_retries=3, initial_delay_s=0.3)
+        async def call_api():
+            response = await client.get("https://api.example.com")
+            return response.json()
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs) -> Any:
+            delay = initial_delay_s
+            last_exception = None
+            
+            for attempt in range(max_retries + 1):
+                try:
+                    # Intentar ejecutar la función
+                    return await func(*args, **kwargs)
+                    
+                except Exception as e:
+                    last_exception = e
+                    
+                    if attempt < max_retries:
+                        # Aún tenemos intentos disponibles
+                        print(f"⚠️ Intento {attempt + 1}/{max_retries + 1} falló: {e}")
+                        print(f"   Esperando {delay:.1f}s antes de reintentar...")
+                        
+                        await asyncio.sleep(delay)
+                        
+                        # Backoff exponencial (con cap)
+                        delay = min(delay * backoff_factor, max_delay_s)
+                    else:
+                        # Agotamos los reintentos
+                        print(f"✗ Todos los intentos agotados: {e}")
+            
+            # Si llegamos aquí, todos los intentos fallaron
+            raise last_exception
+        
+        return wrapper
+    return decorator
+
+
+class RateLimiter:
+    """
+    Rate Limiter simple para prevenir sobrecarga de APIs.
+    
+    Ejemplo:
+        limiter = RateLimiter(max_calls=10, window_seconds=60)
+        
+        if not limiter.is_allowed():
+            raise Exception("Rate limit excedido")
+        
+        await call_api()
+    """
+    
+    def __init__(self, max_calls: int, window_seconds: float):
+        """
+        Constructor.
+        
+        Args:
+            max_calls: Número máximo de llamadas permitidas
+            window_seconds: Ventana de tiempo en segundos
+        """
+        self.max_calls = max_calls
+        self.window_seconds = window_seconds
+        self.calls: list[float] = []
+    
+    def is_allowed(self) -> bool:
+        """
+        Verifica si una nueva llamada está permitida.
+        
+        Returns:
+            True si está dentro del límite
+        """
+        now = time.time()
+        
+        # Limpiar llamadas antiguas fuera de la ventana
+        self.calls = [call_time for call_time in self.calls 
+                     if now - call_time < self.window_seconds]
+        
+        if len(self.calls) < self.max_calls:
+            self.calls.append(now)
+            return True
+        
+        return False
+    
+    def get_retry_after(self) -> float:
+        """
+        Calcula cuántos segundos esperar antes de la próxima llamada.
+        
+        Returns:
+            Segundos a esperar
+        """
+        if not self.calls:
+            return 0.0
+        
+        oldest_call = min(self.calls)
+        time_since_oldest = time.time() - oldest_call
+        
+        return max(0.0, self.window_seconds - time_since_oldest)
+
+
+# ==============================================================================
+# Utilities para Timeout
+# ==============================================================================
+
+async def with_timeout(coro, timeout_seconds: float, error_message: str = "Timeout"):
+    """
+    Ejecuta una coroutine con timeout.
+    
+    Args:
+        coro: Coroutine a ejecutar
+        timeout_seconds: Timeout en segundos
+        error_message: Mensaje de error si hay timeout
+    
+    Returns:
+        Resultado de la coroutine
+    
+    Raises:
+        asyncio.TimeoutError: Si se excede el timeout
+    """
+    try:
+        return await asyncio.wait_for(coro, timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        raise asyncio.TimeoutError(f"{error_message} (>{timeout_seconds}s)")
+
+# ==============================================================================
+# adapters/output/llm/gemini_adapter.py - Google Gemini con Resiliencia
+# ==============================================================================
+
+import os
+import time
+import asyncio
+from typing import Optional
+
+import google.generativeai as genai
+
+from app.ports.output.llm_port import LLMPort, LLMRequest, LLMResponse
+from adapters.utils.resilience import CircuitBreaker, retry_async
+
+
+class GeminiAdapter(LLMPort):
+    """
+    Adaptador para Google Gemini 1.5 Flash.
+    
+    Implementa el contrato LLMPort usando la API de Google Generative AI.
+    Incluye protección con Circuit Breaker y Retry Logic para red 4G inestable.
+    
+    Características:
+    - Circuit Breaker: Protege contra cascadas de fallos
+    - Retry con backoff exponencial: 3 intentos con delays crecientes
+    - Timeout agresivo: 3 segundos (crítico para 4G)
+    - Prompt engineering: Sistema optimizado para concierge
+    """
+    
+    def __init__(self, api_key: Optional[str] = None):
+        """
+        Constructor.
+        
+        Args:
+            api_key: Google API Key (opcional, usa env var si no se provee)
+            
+        Raises:
+            ValueError: Si no se encuentra API key
+        """
+        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        if not self.api_key:
+            raise ValueError("GOOGLE_API_KEY no configurada. Configura en .env o pasa como argumento.")
+        
+        # Configurar SDK de Google
+        genai.configure(api_key=self.api_key)
+        
+        # Modelo: gemini-1.5-flash (rápido, barato, buena calidad)
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # Circuit Breaker: 3 fallos → abre, 30s timeout
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=3,
+            recovery_timeout_s=30
+        )
+        
+        print("✓ Gemini Adapter inicializado")
+    
+    @retry_async(max_retries=2, initial_delay_s=0.3)
+    async def generate(self, request: LLMRequest) -> LLMResponse:
+        """
+        Genera una respuesta usando Gemini.
+        
+        Implementación con:
+        - Circuit Breaker para fail-fast
+        - Retry automático (3 intentos)
+        - Timeout de 3 segundos
+        
+        Args:
+            request: Solicitud con contexto y mensaje del usuario
+            
+        Returns:
+            Respuesta del LLM con texto y metadatos
+            
+        Raises:
+            RuntimeError: Si circuit breaker está abierto
+            asyncio.TimeoutError: Si excede 3 segundos
+            Exception: Para otros errores de API
+        """
+        # Verificar circuit breaker
+        if self.circuit_breaker.is_open():
+            raise RuntimeError("Circuit breaker abierto para Gemini. Esperando recuperación...")
+        
+        start_time = time.time()
+        
+        # ======================================================================
+        # Construir prompt con ingeniería de prompts
+        # ======================================================================
+        system_prompt = """Eres un Concierge Virtual de hotel.
+
+Reglas:
+- Sé amable, conciso y profesional
+- Responde siempre en español
+- Si se te pregunta algo fuera del contexto del hotel, amablemente redirige la conversación
+- Máximo 2-3 oraciones por respuesta (conciso para audio)
+- Si no tienes información, admítelo y sugiere contactar recepción"""
+        
+        # Contexto completo
+        full_prompt = f"""{system_prompt}
+
+CONTEXTO DEL HOTEL:
+{request.hotel_context or "No hay contexto específico disponible."}
+
+HISTORIAL DE CONVERSACIÓN:
+{request.conversation_history}
+
+USUARIO: {request.user_message}
+
+ASISTENTE:"""
+        
+        try:
+            # ==================================================================
+            # Llamada a Gemini con TIMEOUT de 3 segundos
+            # ==================================================================
+            # CRÍTICO: En red 4G inestable, timeout debe ser agresivo
+            response = await asyncio.wait_for(
+                self._call_gemini(full_prompt, request.max_tokens),
+                timeout=3.0
+            )
+            
+            latency_ms = (time.time() - start_time) * 1000
+            
+            # Registrar éxito en circuit breaker
+            self.circuit_breaker.record_success()
+            
+            return LLMResponse(
+                text=response.strip(),
+                model="gemini-1.5-flash",
+                tokens_used=0,  # Gemini no expone tokens directamente en la respuesta
+                latency_ms=latency_ms
+            )
+            
+        except asyncio.TimeoutError:
+            # Timeout: red lenta o API sobrecargada
+            print(f"✗ Timeout en Gemini (>3s)")
+            self.circuit_breaker.record_failure()
+            raise
+            
+        except Exception as e:
+            # Otro error (API key inválida, rate limit, etc)
+            print(f"✗ Error Gemini: {e}")
+            self.circuit_breaker.record_failure()
+            raise
+    
+    async def _call_gemini(self, prompt: str, max_tokens: int) -> str:
+        """
+        Llamada real a Gemini en executor (para no bloquear event loop).
+        
+        La API de Gemini es síncrona, por lo que la ejecutamos en un
+        thread separado usando run_in_executor.
+        
+        Args:
+            prompt: Prompt completo construido
+            max_tokens: Máximo de tokens a generar
+            
+        Returns:
+            Texto generado por Gemini
+        """
+        loop = asyncio.get_event_loop()
+        
+        return await loop.run_in_executor(
+            None,
+            lambda: self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    max_output_tokens=max_tokens,
+                    temperature=0.7,  # Balance creatividad/determinismo
+                    top_p=0.9,
+                    top_k=40,
+                )
+            ).text
+        )
+    
+    async def health_check(self) -> bool:
+        """
+        Verifica disponibilidad de Gemini.
+        
+        Envía un prompt trivial para confirmar conectividad.
+        
+        Returns:
+            True si el servicio está disponible
+        """
+        try:
+            response = await asyncio.wait_for(
+                self._call_gemini("Responde solo 'ok'", 10),
+                timeout=2.0
+            )
+            return response.strip().lower() == "ok"
+        except:
+            return False
+
+
+# ==============================================================================
+# adapters/output/llm/openai_adapter.py - OpenAI GPT como Alternativa
+# ==============================================================================
+
+from openai import AsyncOpenAI
+from app.ports.output.llm_port import LLMPort, LLMRequest, LLMResponse
+from adapters.utils.resilience import CircuitBreaker, retry_async
+
+
+class OpenAIAdapter(LLMPort):
+    """
+    Adaptador para OpenAI GPT-4o-mini.
+    
+    Alternativa/Fallback para cuando Gemini no está disponible.
+    Implementa el mismo contrato LLMPort.
+    """
+    
+    def __init__(self, api_key: Optional[str] = None):
+        """
+        Constructor.
+        
+        Args:
+            api_key: OpenAI API Key
+            
+        Raises:
+            ValueError: Si no se encuentra API key
+        """
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        if not self.api_key:
+            raise ValueError("OPENAI_API_KEY no configurada")
+        
+        self.client = AsyncOpenAI(api_key=self.api_key)
+        
+        # Circuit Breaker
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=3,
+            recovery_timeout_s=30
+        )
+        
+        print("✓ OpenAI Adapter inicializado")
+    
+    @retry_async(max_retries=2, initial_delay_s=0.3)
+    async def generate(self, request: LLMRequest) -> LLMResponse:
+        """
+        Genera respuesta con OpenAI GPT-4o-mini.
+        
+        Args:
+            request: Solicitud con contexto
+            
+        Returns:
+            Respuesta del LLM
+        """
+        if self.circuit_breaker.is_open():
+            raise RuntimeError("Circuit breaker abierto para OpenAI")
+        
+        start_time = time.time()
+        
+        system_prompt = """Eres un Concierge Virtual de hotel.
+Sé amable, conciso y profesional.
+Responde en español.
+Máximo 2-3 oraciones."""
+        
+        try:
+            response = await asyncio.wait_for(
+                self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"{request.hotel_context}\n\n{request.user_message}"}
+                    ],
+                    max_tokens=request.max_tokens,
+                    temperature=0.7,
+                ),
+                timeout=3.0
+            )
+            
+            latency_ms = (time.time() - start_time) * 1000
+            
+            self.circuit_breaker.record_success()
+            
+            return LLMResponse(
+                text=response.choices[0].message.content,
+                model="gpt-4o-mini",
+                tokens_used=response.usage.total_tokens,
+                latency_ms=latency_ms
+            )
+            
+        except asyncio.TimeoutError:
+            self.circuit_breaker.record_failure()
+            raise
+            
+        except Exception as e:
+            self.circuit_breaker.record_failure()
+            raise
+    
+    async def health_check(self) -> bool:
+        """Verifica disponibilidad de OpenAI"""
+        try:
+            response = await asyncio.wait_for(
+                self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": "ok"}],
+                    max_tokens=1,
+                ),
+                timeout=2.0
+            )
+            return True
+        except:
+            return False
+# ==============================================================================
+# adapters/output/speech/whisper_local_adapter.py - Whisper Local (Offline)
+# ==============================================================================
+
+import whisper
+import asyncio
+import time
+import tempfile
+import os
+from typing import Optional
+
+from app.ports.output.stt_port import STTPort, STTResponse
+
+
+class WhisperLocalAdapter(STTPort):
+    """
+    Adaptador para Whisper local (offline).
+    
+    Implementa el contrato STTPort usando OpenAI Whisper localmente.
+    
+    Características:
+    - 100% offline (no requiere internet)
+    - Modelos: tiny (~39MB, rápido) o base (~140MB, preciso)
+    - Latencia: ~200-500ms en Intel N100
+    - Privacidad: Audio nunca sale del dispositivo
+    
+    Ventajas vs Cloud STT:
+    - Sin latencia de red
+    - Sin costos por request
+    - Sin límites de uso
+    - Privacidad garantizada
+    
+    Trade-offs:
+    - Menor precisión que modelos cloud (95% vs 98%)
+    - Consume CPU localmente
+    - Primera ejecución lenta (carga modelo)
+    """
+    
+    def __init__(self, model_size: str = "base", language: str = "es"):
+        """
+        Constructor.
+        
+        Args:
+            model_size: Tamaño del modelo ('tiny', 'base', 'small', 'medium', 'large')
+                       - tiny: ~39MB, más rápido (~200ms), menos preciso
+                       - base: ~140MB, balance (~500ms), buena precisión ✓ RECOMENDADO
+                       - small: ~460MB, más lento (~1s), mejor precisión
+            language: Código ISO-639-1 del idioma (ej: "es", "en")
+        
+        Raises:
+            RuntimeError: Si el modelo no se puede cargar
+        """
+        self.model_size = model_size
+        self.language = language
+        
+        print(f"📥 Cargando modelo Whisper ({model_size})...")
+        
+        try:
+            # Cargar modelo (primera vez descarga ~140MB)
+            self.model = whisper.load_model(model_size)
+            print(f"✓ Whisper {model_size} cargado")
+        except Exception as e:
+            raise RuntimeError(f"Error cargando Whisper: {e}")
+    
+    async def transcribe(self, audio_bytes: bytes) -> STTResponse:
+        """
+        Transcribe audio a texto (offline).
+        
+        Args:
+            audio_bytes: Audio en formato WAV (16-bit PCM, mono, 16kHz)
+            
+        Returns:
+            Texto transcrito con metadatos
+            
+        Raises:
+            Exception: Si la transcripción falla
+        """
+        start_time = time.time()
+        
+        try:
+            # Whisper requiere un archivo, guardamos en temporal
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp.write(audio_bytes)
+                tmp_path = tmp.name
+            
+            # Transcribir (bloqueante, pero local)
+            # Ejecutamos en executor para no bloquear event loop
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                lambda: self.model.transcribe(
+                    tmp_path,
+                    language=self.language,
+                    fp16=False,  # Desactivar FP16 para compatibilidad CPU
+                )
+            )
+            
+            # Limpiar archivo temporal
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
+            
+            latency_ms = (time.time() - start_time) * 1000
+            
+            # Extraer confianza promedio de los segmentos
+            confidence = 0.0
+            if result.get('segments'):
+                confidences = [seg.get('avg_logprob', 0.0) for seg in result['segments']]
+                if confidences:
+                    # avg_logprob está en escala logarítmica negativa
+                    # Convertir a 0-1 (aproximado)
+                    confidence = min(1.0, max(0.0, 1.0 + (sum(confidences) / len(confidences)) / 5.0))
+            
+            return STTResponse(
+                text=result['text'].strip(),
+                language=self.language,
+                confidence=confidence,
+                latency_ms=latency_ms
+            )
+            
+        except Exception as e:
+            print(f"✗ Error STT: {e}")
+            raise
+    
+    def set_language(self, language: str) -> None:
+        """
+        Configura el idioma de transcripción.
+        
+        Args:
+            language: Código ISO-639-1 (ej: "es", "en", "fr")
+        """
+        self.language = language
+        print(f"✓ Idioma STT configurado a: {language}")
+
+
+# ==============================================================================
+# adapters/output/speech/elevenlabs_adapter.py - ElevenLabs TTS (Cloud)
+# ==============================================================================
+
+import asyncio
+import time
+import os
+from typing import Optional
+
+try:
+    from elevenlabs import generate, set_api_key
+except ImportError:
+    print("⚠️ elevenlabs no instalado. Usa: pip install elevenlabs")
+
+from app.ports.output.tts_port import TTSPort, TTSRequest, TTSResponse
+from adapters.utils.resilience import CircuitBreaker, retry_async
+
+
+class ElevenLabsAdapter(TTSPort):
+    """
+    Adaptador para ElevenLabs TTS (Cloud, alta calidad).
+    
+    Características:
+    - Voz natural de alta calidad
+    - Latencia: ~300-500ms
+    - Streaming: Puede empezar a reproducir antes de terminar
+    - Costo: ~$0.30 por 1000 caracteres
+    
+    Ventajas vs TTS Local:
+    - Calidad superior (suena humano)
+    - Rápido (más que pyttsx3)
+    - Soporte para múltiples voces/idiomas
+    
+    Trade-offs:
+    - Requiere internet
+    - Costos por uso
+    - Dependencia de servicio externo
+    """
+    
+    def __init__(self, api_key: Optional[str] = None, voice_id: str = "21m00Tcm4TlvDq8ikWAM"):
+        """
+        Constructor.
+        
+        Args:
+            api_key: ElevenLabs API Key
+            voice_id: ID de la voz a usar (default: Rachel - femenina, natural)
+            
+        Raises:
+            ValueError: Si no se encuentra API key
+        """
+        self.api_key = api_key or os.getenv("ELEVENLABS_API_KEY")
+        if not self.api_key:
+            raise ValueError("ELEVENLABS_API_KEY no configurada")
+        
+        set_api_key(self.api_key)
+        self.voice_id = voice_id
+        
+        # Circuit Breaker
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=3,
+            recovery_timeout_s=30
+        )
+        
+        print("✓ ElevenLabs Adapter inicializado")
+    
+    @retry_async(max_retries=2, initial_delay_s=0.2)
+    async def synthesize(self, request: TTSRequest) -> TTSResponse:
+        """
+        Sintetiza texto a audio con ElevenLabs.
+        
+        Args:
+            request: Solicitud con texto y configuración
+            
+        Returns:
+            Audio sintetizado
+        """
+        if self.circuit_breaker.is_open():
+            raise RuntimeError("Circuit breaker abierto para ElevenLabs")
+        
+        start_time = time.time()
+        
+        try:
+            # Limitar largo (ElevenLabs cobra por caracteres)
+            text = request.text[:1000] if len(request.text) > 1000 else request.text
+            
+            # Llamada con timeout de 5s (TTS puede tardar)
+            response = await asyncio.wait_for(
+                self._call_elevenlabs(text, request.speed),
+                timeout=5.0
+            )
+            
+            latency_ms = (time.time() - start_time) * 1000
+            
+            self.circuit_breaker.record_success()
+            
+            # Estimar duración (aproximado: ~50ms por palabra)
+            word_count = len(request.text.split())
+            estimated_duration_ms = word_count * 50
+            
+            return TTSResponse(
+                audio_bytes=response,
+                duration_ms=estimated_duration_ms,
+                latency_ms=latency_ms
+            )
+            
+        except asyncio.TimeoutError:
+            print(f"✗ Timeout ElevenLabs (>5s)")
+            self.circuit_breaker.record_failure()
+            raise
+            
+        except Exception as e:
+            print(f"✗ Error ElevenLabs: {e}")
+            self.circuit_breaker.record_failure()
+            raise
+    
+    async def _call_elevenlabs(self, text: str, speed: float) -> bytes:
+        """
+        Llamada a ElevenLabs (ejecutada en executor).
+        
+        Args:
+            text: Texto a sintetizar
+            speed: Velocidad (1.0 = normal)
+            
+        Returns:
+            Audio bytes
+        """
+        loop = asyncio.get_event_loop()
+        
+        return await loop.run_in_executor(
+            None,
+            lambda: generate(
+                text=text,
+                voice=self.voice_id,
+                model="eleven_monolingual_v1"
+            )
+        )
+    
+    async def health_check(self) -> bool:
+        """Verifica disponibilidad de ElevenLabs"""
+        try:
+            await asyncio.wait_for(
+                self.synthesize(TTSRequest(text="test")),
+                timeout=3.0
+            )
+            return True
+        except:
+            return False
+
+
+# ==============================================================================
+# adapters/output/speech/pyttsx3_fallback_adapter.py - TTS Local (Fallback)
+# ==============================================================================
+
+import pyttsx3
+import asyncio
+import time
+import tempfile
+import os
+
+from app.ports.output.tts_port import TTSPort, TTSRequest, TTSResponse
+
+
+class Pyttsx3FallbackAdapter(TTSPort):
+    """
+    Fallback local para TTS (sin red, baja calidad).
+    
+    Usado cuando ElevenLabs no está disponible.
+    
+    Características:
+    - 100% offline
+    - Gratis
+    - Latencia: ~1-2s
+    - Calidad: Voz robótica (pero comprensible)
+    """
+    
+    def __init__(self):
+        """Constructor"""
+        try:
+            self.engine = pyttsx3.init()
+            self.engine.setProperty('rate', 150)  # Velocidad
+            self.engine.setProperty('volume', 0.9)
+            print("✓ pyttsx3 Fallback Adapter inicializado")
+        except Exception as e:
+            print(f"⚠️ Error inicializando pyttsx3: {e}")
+            self.engine = None
+    
+    async def synthesize(self, request: TTSRequest) -> TTSResponse:
+        """
+        Sintetiza con pyttsx3 (bloqueante pero local).
+        
+        Args:
+            request: Solicitud con texto
+            
+        Returns:
+            Audio sintetizado
+        """
+        start_time = time.time()
+        
+        try:
+            loop = asyncio.get_event_loop()
+            audio_bytes = await loop.run_in_executor(
+                None,
+                lambda: self._synthesize_blocking(request.text)
+            )
+            
+            latency_ms = (time.time() - start_time) * 1000
+            
+            # Estimar duración
+            word_count = len(request.text.split())
+            estimated_duration_ms = word_count * 50
+            
+            return TTSResponse(
+                audio_bytes=audio_bytes,
+                duration_ms=estimated_duration_ms,
+                latency_ms=latency_ms
+            )
+            
+        except Exception as e:
+            print(f"✗ Error pyttsx3: {e}")
+            raise
+    
+    def _synthesize_blocking(self, text: str) -> bytes:
+        """
+        Sintetiza bloqueante.
+        
+        Args:
+            text: Texto a sintetizar
+            
+        Returns:
+            Audio bytes
+        """
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+            tmp_path = tmp.name
+        
+        self.engine.save_to_file(text, tmp_path)
+        self.engine.runAndWait()
+        
+        with open(tmp_path, "rb") as f:
+            audio_bytes = f.read()
+        
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
+        
+        return audio_bytes
+    
+    async def health_check(self) -> bool:
+        """Siempre disponible (local)"""
+        return self.engine is not None
+
+# ==============================================================================
+# adapters/output/database/chroma_adapter.py - ChromaDB (Vector Store Local)
+# ==============================================================================
+
+import asyncio
+import chromadb
+from chromadb.config import Settings
+from typing import List
+
+from app.ports.output.knowledge_base_port import (
+    KnowledgeBasePort,
+    KnowledgeBaseQuery,
+    KnowledgeBaseResult
+)
+
+
+class ChromaDBAdapter(KnowledgeBasePort):
+    """
+    Adaptador para ChromaDB (Vector Store local).
+    
+    ChromaDB es una base de datos vectorial embebida que permite:
+    - Búsqueda semántica (RAG - Retrieval Augmented Generation)
+    - Embeddings automáticos
+    - Persistencia local (sin servidor)
+    - Rápido (consultas en ms)
+    
+    Flujo:
+    1. Inicialización: Crea/carga colección
+    2. Indexación: add_documents() → genera embeddings → almacena
+    3. Búsqueda: search() → embedding de query → busca similares → retorna Top-K
+    
+    Ventajas:
+    - 100% local (sin dependencias de red)
+    - Gratis
+    - Embeddings automáticos (usa sentence-transformers)
+    - Simple de usar
+    
+    Casos de uso:
+    - Base de conocimiento del hotel
+    - FAQ
+    - Documentación
+    - Políticas y procedimientos
+    """
+    
+    def __init__(self, db_path: str = "./data/chroma_db"):
+        """
+        Constructor.
+        
+        Args:
+            db_path: Ruta donde persistir la base de datos
+        """
+        print(f"📦 Inicializando ChromaDB en {db_path}...")
+        
+        try:
+            # Inicializar cliente ChromaDB con persistencia
+            self.db = chromadb.Client(
+                Settings(
+                    chroma_db_impl="duckdb+parquet",
+                    persist_directory=db_path,
+                    anonymized_telemetry=False,
+                )
+            )
+            
+            self.collection = None
+            self.db_path = db_path
+            
+            print("✓ ChromaDB inicializado")
+            
+        except Exception as e:
+            print(f"✗ Error inicializando ChromaDB: {e}")
+            raise
+    
+    def is_ready(self) -> bool:
+        """
+        Verifica si la KB está lista para usar.
+        
+        Returns:
+            True si la colección está creada e indexada
+        """
+        return self.collection is not None
+    
+    async def add_documents(self, documents: List[str], metadata: dict) -> None:
+        """
+        Añade documentos a la colección.
+        
+        ChromaDB automáticamente:
+        1. Genera embeddings usando sentence-transformers
+        2. Almacena vectores en índice HNSW
+        3. Persiste en disco
+        
+        Args:
+            documents: Lista de textos a indexar
+            metadata: Metadatos asociados (ej: source, type, date)
+            
+        Ejemplo:
+            await kb.add_documents(
+                documents=[
+                    "Check-in a las 15:00",
+                    "WiFi gratis en habitaciones",
+                ],
+                metadata={"source": "hotel_info", "type": "faq"}
+            )
+        """
+        if not documents:
+            print("⚠️ No hay documentos para añadir")
+            return
+        
+        try:
+            # Crear colección si no existe
+            if self.collection is None:
+                self.collection = self.db.get_or_create_collection(
+                    name="hotel_knowledge",
+                    metadata={"hnsw:space": "cosine"}  # Métrica de similitud
+                )
+            
+            # Añadir documentos (ChromaDB genera embeddings automáticamente)
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None,
+                lambda: self.collection.add(
+                    documents=documents,
+                    ids=[f"doc_{i}" for i in range(len(documents))],
+                    metadatas=[metadata] * len(documents)
+                )
+            )
+            
+            print(f"✓ {len(documents)} documentos añadidos a ChromaDB")
+            
+        except Exception as e:
+            print(f"✗ Error añadiendo documentos: {e}")
+            raise
+    
+    async def search(self, query: KnowledgeBaseQuery) -> List[KnowledgeBaseResult]:
+        """
+        Busca documentos relevantes usando búsqueda semántica.
+        
+        Flujo:
+        1. Embedding de la query (automático)
+        2. Búsqueda de K-nearest neighbors en el espacio vectorial
+        3. Retorna documentos ordenados por similitud
+        
+        Args:
+            query: Query con texto y parámetros
+            
+        Returns:
+            Lista de resultados ordenados por relevancia
+            
+        Ejemplo:
+            results = await kb.search(
+                KnowledgeBaseQuery(
+                    query_text="¿Cuál es el WiFi?",
+                    top_k=3,
+                    min_score=0.5
+                )
+            )
+            
+            for result in results:
+                print(f"Score: {result.score}, Text: {result.content}")
+        """
+        if not self.is_ready():
+            print("⚠️ KB no está lista, retornando lista vacía")
+            return []
+        
+        try:
+            loop = asyncio.get_event_loop()
+            
+            # Búsqueda vectorial
+            results = await loop.run_in_executor(
+                None,
+                lambda: self.collection.query(
+                    query_texts=[query.query_text],
+                    n_results=query.top_k
+                )
+            )
+            
+            kb_results = []
+            
+            # Procesar resultados
+            if results['distances'] and len(results['distances']) > 0:
+                distances = results['distances'][0]
+                documents = results['documents'][0]
+                metadatas = results['metadatas'][0]
+                
+                for i, (distance, doc, metadata) in enumerate(
+                    zip(distances, documents, metadatas)
+                ):
+                    # Convertir distancia a score (0-1)
+                    # ChromaDB usa distancia coseno: 0 = idéntico, 2 = opuesto
+                    score = 1 - (distance / 2)  # Normalizar a 0-1
+                    
+                    # Filtrar por min_score
+                    if score >= query.min_score:
+                        kb_results.append(
+                            KnowledgeBaseResult(
+                                content=doc,
+                                score=score,
+                                source=metadata.get('source', 'unknown')
+                            )
+                        )
+            
+            return kb_results
+            
+        except Exception as e:
+            print(f"✗ Error búsqueda ChromaDB: {e}")
+            return []
+    
+    def reset(self) -> None:
+        """
+        Resetea la base de datos (elimina colección).
+        
+        Útil para:
+        - Testing
+        - Re-indexación completa
+        - Limpiar datos obsoletos
+        """
+        try:
+            if self.collection:
+                self.db.delete_collection("hotel_knowledge")
+                self.collection = None
+                print("✓ Colección eliminada")
+        except Exception as e:
+            print(f"⚠️ Error reseteando ChromaDB: {e}")
+    
+    def get_stats(self) -> dict:
+        """
+        Retorna estadísticas de la base de datos.
+        
+        Returns:
+            Diccionario con métricas
+        """
+        if not self.is_ready():
+            return {"status": "not_ready", "count": 0}
+        
+        try:
+            count = self.collection.count()
+            return {
+                "status": "ready",
+                "count": count,
+                "collection": "hotel_knowledge",
+                "path": self.db_path
+            }
+        except:
+            return {"status": "error", "count": 0}
+
+# ==============================================================================
+# adapters/input/mic_listener/vad_filter.py - Voice Activity Detection con WebRTC
+# ==============================================================================
+
+import webrtcvad
+import numpy as np
+from collections import deque
+
+
+class VADFilter:
+    """
+    Voice Activity Detection usando WebRTC VAD.
+    
+    WebRTC VAD es un detector de voz robusto desarrollado por Google
+    para WebRTC (comunicaciones en tiempo real). Es superior a filtros
+    de energía simples porque:
+    
+    - Detecta características espectrales de voz humana
+    - Robusto ante ruido ambiente (música, ventiladores, etc)
+    - Múltiples modos de agresividad
+    - Optimizado para tiempo real
+    
+    Modos:
+    - 0: Menos agresivo (detecta más, puede incluir ruido)
+    - 1: Normal
+    - 2: Agresivo
+    - 3: Muy agresivo (solo voz clara) ✓ RECOMENDADO para Expo
+    """
+    
+    def __init__(self,
+                 sample_rate: int = 16000,
+                 frame_duration_ms: int = 30,
+                 mode: int = 3,
+                 min_speech_frames: int = 5):
+        """
+        Constructor.
+        
+        Args:
+            sample_rate: Hz (debe ser 8000, 16000, 32000 o 48000)
+            frame_duration_ms: Duración del frame (10, 20 o 30 ms)
+            mode: Agresividad (0-3, donde 3 es más estricto)
+            min_speech_frames: Mínimo de frames de voz para activar detección
+        """
+        if sample_rate not in [8000, 16000, 32000, 48000]:
+            raise ValueError(f"sample_rate debe ser 8000, 16000, 32000 o 48000, recibido: {sample_rate}")
+        
+        if frame_duration_ms not in [10, 20, 30]:
+            raise ValueError(f"frame_duration_ms debe ser 10, 20 o 30, recibido: {frame_duration_ms}")
+        
+        self.sample_rate = sample_rate
+        self.frame_duration_ms = frame_duration_ms
+        self.frame_size = int(sample_rate * frame_duration_ms / 1000)
+        
+        # Inicializar WebRTC VAD
+        self.vad = webrtcvad.Vad()
+        self.vad.set_mode(mode)
+        
+        # Estado
+        self.min_speech_frames = min_speech_frames
+        self.speech_frames = deque(maxlen=min_speech_frames)
+        self.silence_frames = 0
+        self.speech_detected = False
+        
+        print(f"✓ VAD inicializado (modo {mode}, frame {frame_duration_ms}ms)")
+    
+    def is_speech(self, audio_chunk: bytes) -> bool:
+        """
+        Determina si el chunk contiene voz humana.
+        
+        Args:
+            audio_chunk: Audio en formato raw bytes (16-bit PCM)
+            
+        Returns:
+            True si hay voz, False si es silencio/ruido
+        """
+        try:
+            # WebRTC VAD requiere frames de tamaño específico
+            # Si el chunk es más grande, procesamos por frames
+            is_speech_detected = False
+            
+            # Procesar en frames del tamaño correcto
+            frame_bytes = self.frame_size * 2  # 2 bytes por sample (16-bit)
+            
+            for i in range(0, len(audio_chunk), frame_bytes):
+                frame = audio_chunk[i:i + frame_bytes]
+                
+                # Si el frame es muy corto, rellenar con ceros
+                if len(frame) < frame_bytes:
+                    frame = frame + b'\x00' * (frame_bytes - len(frame))
+                
+                # Detectar voz en este frame
+                try:
+                    is_speech_frame = self.vad.is_speech(frame, self.sample_rate)
+                    if is_speech_frame:
+                        is_speech_detected = True
+                        break
+                except:
+                    # Si hay error, asumir que no es voz
+                    continue
+            
+            # Actualizar estado
+            if is_speech_detected:
+                self.speech_frames.append(True)
+                self.silence_frames = 0
+                
+                # Activar detección si tenemos suficientes frames de voz
+                if len(self.speech_frames) == self.min_speech_frames:
+                    self.speech_detected = True
+            else:
+                self.speech_frames.append(False)
+                self.silence_frames += 1
+            
+            return is_speech_detected
+            
+        except Exception as e:
+            print(f"⚠️ Error en VAD: {e}")
+            return False
+    
+    def is_silence_timeout(self, max_silence_frames: int = 30) -> bool:
+        """
+        Detecta si hubo suficiente silencio para terminar la captura.
+        
+        Args:
+            max_silence_frames: Máximo de frames silenciosos antes de terminar
+            
+        Returns:
+            True si hemos detectado suficiente silencio después de voz
+        """
+        if not self.speech_detected:
+            return False
+        
+        return self.silence_frames > max_silence_frames
+    
+    def reset(self) -> None:
+        """Reinicia el detector"""
+        self.speech_frames.clear()
+        self.silence_frames = 0
+        self.speech_detected = False
+
+
+# ==============================================================================
+# adapters/input/mic_listener/pyaudio_handler.py - Captura con PyAudio
+# ==============================================================================
+
+import pyaudio
+import numpy as np
+import threading
+import queue
+from typing import Optional
+import time
+
+
+class PyAudioHandler:
+    """
+    Captura de audio usando PyAudio con thread separado.
+    
+    PyAudio es un binding de Python para PortAudio, que permite
+    captura de audio cross-platform (Windows, Mac, Linux).
+    
+    Arquitectura:
+    - Thread principal: Lógica de la app
+    - Thread secundario: Captura continua de audio
+    - Queue: Comunicación entre threads (thread-safe)
+    
+    Ventajas:
+    - No bloquea el event loop principal
+    - Captura continua sin drops
+    - Buffer automático
+    """
+    
+    def __init__(self,
+                 sample_rate: int = 16000,
+                 chunk_size: int = 1024,
+                 channels: int = 1,
+                 device_index: Optional[int] = None):
+        """
+        Constructor.
+        
+        Args:
+            sample_rate: 16000 Hz es estándar para Whisper
+            chunk_size: Frames por buffer (1024 = ~64ms a 16kHz)
+            channels: Mono (1) o Estéreo (2)
+            device_index: Índice del dispositivo (None = default)
+        """
+        self.sample_rate = sample_rate
+        self.chunk_size = chunk_size
+        self.channels = channels
+        self.device_index = device_index
+        
+        self.pa = pyaudio.PyAudio()
+        self.stream: Optional[pyaudio.Stream] = None
+        self.is_listening = False
+        
+        # Queue para pasar audio entre threads
+        self.audio_queue: queue.Queue = queue.Queue(maxsize=100)
+        self.listener_thread: Optional[threading.Thread] = None
+        
+        print(f"🎤 PyAudio inicializado")
+        self._list_devices()
+    
+    def _list_devices(self):
+        """Lista dispositivos de audio disponibles"""
+        print(f"  Dispositivos de audio disponibles:")
+        for i in range(self.pa.get_device_count()):
+            info = self.pa.get_device_info_by_index(i)
+            if info['maxInputChannels'] > 0:
+                print(f"    [{i}] {info['name']} (Input: {info['maxInputChannels']} ch)")
+    
+    def start_listening(self) -> None:
+        """Inicia la captura en un thread separado"""
+        if self.is_listening:
+            print("⚠️ Ya estamos escuchando")
+            return
+        
+        self.is_listening = True
+        self.listener_thread = threading.Thread(
+            target=self._listening_loop,
+            daemon=True
+        )
+        self.listener_thread.start()
+        print("✓ Micrófono activado")
+    
+    def stop_listening(self) -> None:
+        """Detiene la captura"""
+        self.is_listening = False
+        if self.listener_thread:
+            self.listener_thread.join(timeout=2.0)
+        
+        if self.stream:
+            self.stream.stop_stream()
+            self.stream.close()
+        
+        print("✓ Micrófono desactivado")
+    
+    def _listening_loop(self) -> None:
+        """Loop de captura en el thread secundario"""
+        try:
+            self.stream = self.pa.open(
+                format=pyaudio.paInt16,  # 16-bit PCM
+                channels=self.channels,
+                rate=self.sample_rate,
+                input=True,
+                input_device_index=self.device_index,
+                frames_per_buffer=self.chunk_size,
+                stream_callback=None
+            )
+            
+            print(f"🔴 Grabando... (sample_rate={self.sample_rate}, chunk={self.chunk_size})")
+            
+            while self.is_listening:
+                try:
+                    # Leer chunk del micrófono (bloqueante)
+                    audio_chunk = self.stream.read(
+                        self.chunk_size,
+                        exception_on_overflow=False
+                    )
+                    
+                    # Añadir a queue (no bloquear si está llena)
+                    try:
+                        self.audio_queue.put_nowait(audio_chunk)
+                    except queue.Full:
+                        print("⚠️ Audio queue llena, descartando frame")
+                        
+                except Exception as e:
+                    print(f"✗ Error leyendo audio: {e}")
+                    break
+                    
+        except Exception as e:
+            print(f"✗ Error stream PyAudio: {e}")
+        finally:
+            if self.stream:
+                self.stream.stop_stream()
+                self.stream.close()
+    
+    def get_chunk(self, timeout_s: float = 0.5) -> Optional[bytes]:
+        """
+        Obtiene un chunk de audio del queue.
+        
+        Args:
+            timeout_s: Timeout en segundos
+            
+        Returns:
+            Audio bytes o None si timeout
+        """
+        try:
+            return self.audio_queue.get(timeout=timeout_s)
+        except queue.Empty:
+            return None
+    
+    def queue_size(self) -> int:
+        """Retorna el tamaño actual del queue"""
+        return self.audio_queue.qsize()
+    
+    def __del__(self):
+        """Destructor: limpiar recursos"""
+        try:
+            if self.is_listening:
+                self.stop_listening()
+            self.pa.terminate()
+        except:
+            pass
+
+
+# ==============================================================================
+# adapters/input/mic_listener_adapter.py - Orquestador de Captura
+# ==============================================================================
+
+import io
+import wave
+import threading
+from typing import Optional, Callable
+
+from app.ports.input.audio_input_port import AudioInputPort
+from adapters.input.mic_listener.vad_filter import VADFilter
+from adapters.input.mic_listener.pyaudio_handler import PyAudioHandler
+
+
+class MicListenerAdapter(AudioInputPort):
+    """
+    Adaptador de micrófono con VAD mejorado.
+    
+    Orquesta:
+    - PyAudioHandler: Captura continua en thread
+    - VADFilter: Detección robusta de voz vs ruido
+    - Callbacks: Notifica cuando hay audio y cuando termina el discurso
+    
+    Flujo:
+    1. start_listening() → activa PyAudio
+    2. Loop continuo:
+       - Obtiene chunk del queue
+       - Pasa por VAD
+       - Si voz: callback on_audio_chunk()
+       - Si silencio prolongado: callback on_silence_detected()
+    3. stop_listening() → detiene captura
+    """
+    
+    def __init__(self,
+                 sample_rate: int = 16000,
+                 silence_timeout_ms: float = 1500.0):
+        """
+        Constructor.
+        
+        Args:
+            sample_rate: 16000 Hz (estándar para Whisper)
+            silence_timeout_ms: Cuánto silencio para terminar grabación
+        """
+        self.sample_rate = sample_rate
+        self.chunk_size = 1024
+        self.silence_timeout_ms = silence_timeout_ms
+        
+        # Inicializar PyAudio
+        self.pyaudio_handler = PyAudioHandler(
+            sample_rate=sample_rate,
+            chunk_size=self.chunk_size
+        )
+        
+        # Inicializar VAD (modo 3 = muy agresivo)
+        self.vad = VADFilter(
+            sample_rate=sample_rate,
+            frame_duration_ms=30,
+            mode=3  # Muy agresivo para ruido de Expo
+        )
+        
+        self.is_listening = False
+        self.listener_thread: Optional[threading.Thread] = None
+        self.audio_buffer = bytearray()
+        self.last_audio_chunk: Optional[bytes] = None
+    
+    def start_listening(self,
+                       on_audio_chunk: Callable[[bytes], None],
+                       on_silence_detected: Callable[[], None]) -> None:
+        """
+        Inicia captura y llama callbacks cuando detecta discurso/silencio.
+        
+        Args:
+            on_audio_chunk: Callback cuando hay audio
+            on_silence_detected: Callback cuando detecta fin de discurso
+        """
+        if self.is_listening:
+            print("⚠️ Ya estamos escuchando")
+            return
+        
+        self.is_listening = True
+        self.audio_buffer = bytearray()
+        
+        # Iniciar PyAudio
+        self.pyaudio_handler.start_listening()
+        
+        # Iniciar thread de captura con VAD
+        self.listener_thread = threading.Thread(
+            target=self._capture_loop,
+            args=(on_audio_chunk, on_silence_detected),
+            daemon=True
+        )
+        self.listener_thread.start()
+        
+        print("🎙️ Micrófono listo (VAD activado)")
+    
+    def stop_listening(self) -> None:
+        """Detiene la captura"""
+        self.is_listening = False
+        self.pyaudio_handler.stop_listening()
+        
+        if self.listener_thread:
+            self.listener_thread.join(timeout=2.0)
+        
+        print("✓ Captura detenida")
+    
+    def _capture_loop(self,
+                     on_audio_chunk: Callable[[bytes], None],
+                     on_silence_detected: Callable[[], None]) -> None:
+        """
+        Loop de captura con VAD.
+        
+        Args:
+            on_audio_chunk: Callback para audio
+            on_silence_detected: Callback para silencio
+        """
+        silence_frames = 0
+        max_silence_frames = int(
+            (self.silence_timeout_ms / 1000.0) * self.sample_rate / self.chunk_size
+        )
+        
+        print(f"📊 Esperando audio... (silencio: {max_silence_frames} frames = {self.silence_timeout_ms}ms)")
+        
+        try:
+            while self.is_listening:
+                # Obtener chunk del queue (no bloqueante)
+                chunk = self.pyaudio_handler.get_chunk(timeout_s=0.1)
+                
+                if chunk is None:
+                    continue
+                
+                # Detectar si hay voz usando WebRTC VAD
+                has_speech = self.vad.is_speech(chunk)
+                
+                if has_speech:
+                    # Resetear contador de silencio
+                    silence_frames = 0
+                    
+                    # Bufferar audio
+                    self.audio_buffer.extend(chunk)
+                    self.last_audio_chunk = chunk
+                    
+                    # Callback: audio detectado
+                    on_audio_chunk(chunk)
+                    
+                else:
+                    # Silencio
+                    if self.vad.speech_detected:
+                        # Solo contar silencio si ya detectamos voz antes
+                        silence_frames += 1
+                
+                # Verificar timeout de silencio
+                if silence_frames > max_silence_frames:
+                    print(f"⏸️ Silencio detectado ({silence_frames}/{max_silence_frames} frames)")
+                    
+                    # Callback: fin de discurso
+                    on_silence_detected()
+                    
+                    # Resetear para nueva captura
+                    self.vad.reset()
+                    self.audio_buffer = bytearray()
+                    silence_frames = 0
+                    
+        except Exception as e:
+            print(f"✗ Error en capture loop: {e}")
+    
+    def get_last_audio_chunk(self) -> Optional[bytes]:
+        """Retorna el último chunk capturado"""
+        return self.last_audio_chunk
+    
+    def get_buffered_audio_wav(self) -> bytes:
+        """
+        Retorna el audio buffereado en formato WAV.
+        
+        Returns:
+            Audio en formato WAV (16-bit PCM, mono, 16kHz)
+        """
+        if not self.audio_buffer:
+            return b""
+        
+        # Crear archivo WAV en memoria
+        output = io.BytesIO()
+        with wave.open(output, 'wb') as wav_file:
+            wav_file.setnchannels(1)  # Mono
+            wav_file.setsampwidth(2)  # 16-bit
+            wav_file.setframerate(self.sample_rate)
+            wav_file.writeframes(bytes(self.audio_buffer))
+        
+        return output.getvalue()
+
+# ==============================================================================
+# config/settings.py - Configuración Centralizada
+# ==============================================================================
+
+import os
+from dataclasses import dataclass
+from typing import Literal
+
+
+@dataclass
+class Settings:
+    """
+    Configuración centralizada desde variables de entorno (.env).
+    
+    Todas las configuraciones se cargan desde .env usando python-dotenv.
+    Esto permite cambiar configuración sin modificar código.
+    """
+    
+    # =========================================================================
+    # LLM Configuration
+    # =========================================================================
+    llm_provider: Literal["gemini", "openai"] = os.getenv("LLM_PROVIDER", "gemini")
+    google_api_key: str = os.getenv("GOOGLE_API_KEY", "")
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    
+    # =========================================================================
+    # STT Configuration
+    # =========================================================================
+    whisper_model: Literal["tiny", "base", "small"] = os.getenv("WHISPER_MODEL", "base")
+    stt_language: str = os.getenv("STT_LANGUAGE", "es")
+    
+    # =========================================================================
+    # TTS Configuration
+    # =========================================================================
+    tts_provider: Literal["elevenlabs", "pyttsx3"] = os.getenv("TTS_PROVIDER", "elevenlabs")
+    elevenlabs_api_key: str = os.getenv("ELEVENLABS_API_KEY", "")
+    tts_voice_id: str = os.getenv("TTS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+    
+    # =========================================================================
+    # Audio Configuration
+    # =========================================================================
+    sample_rate: int = int(os.getenv("SAMPLE_RATE", "16000"))
+    chunk_size: int = int(os.getenv("CHUNK_SIZE", "1024"))
+    silence_timeout_ms: float = float(os.getenv("SILENCE_TIMEOUT_MS", "1500"))
+    
+    # =========================================================================
+    # Database Configuration
+    # =========================================================================
+    chroma_db_path: str = os.getenv("CHROMA_DB_PATH", "./data/chroma_db")
+    
+    # =========================================================================
+    # Debug
+    # =========================================================================
+    debug: bool = os.getenv("DEBUG", "False").lower() == "true"
+    
+    def validate(self) -> None:
+        """
+        Valida que la configuración sea completa.
+        
+        Raises:
+            ValueError: Si faltan configuraciones críticas
+        """
+        errors = []
+        
+        # Validar LLM
+        if self.llm_provider == "gemini" and not self.google_api_key:
+            errors.append("❌ GOOGLE_API_KEY requerida para Gemini")
+        
+        if self.llm_provider == "openai" and not self.openai_api_key:
+            errors.append("❌ OPENAI_API_KEY requerida para OpenAI")
+        
+        # Validar TTS
+        if self.tts_provider == "elevenlabs" and not self.elevenlabs_api_key:
+            errors.append("❌ ELEVENLABS_API_KEY requerida para ElevenLabs")
+        
+        # Validar audio
+        if self.sample_rate not in [8000, 16000, 32000, 48000]:
+            errors.append(f"❌ SAMPLE_RATE debe ser 8000, 16000, 32000 o 48000, recibido: {self.sample_rate}")
+        
+        if errors:
+            raise ValueError("Configuración inválida:\n" + "\n".join(errors))
+        
+        print("✓ Configuración validada")
+
+
+# ==============================================================================
+# config/container.py - Dependency Injection Container
+# ==============================================================================
+
+from typing import Optional
+
+from app.ports.output.llm_port import LLMPort
+from app.ports.output.stt_port import STTPort
+from app.ports.output.tts_port import TTSPort
+from app.ports.output.knowledge_base_port import KnowledgeBasePort
+from app.ports.input.audio_input_port import AudioInputPort
+from app.domain.services.assistant_service import AssistantService
+
+
+class DIContainer:
+    """
+    Contenedor de Inyección de Dependencias (Singleton Pattern).
+    
+    Responsable de:
+    1. Crear instancias de adaptadores
+    2. Cablear dependencias
+    3. Garantizar una sola instancia (singleton)
+    
+    Ventajas:
+    - Desacoplamiento: Los servicios no saben qué adaptadores usan
+    - Testabilidad: Fácil inyectar mocks
+    - Configurabilidad: Cambiar implementaciones sin modificar código
+    """
+    
+    def __init__(self, settings: Settings):
+        """
+        Constructor.
+        
+        Args:
+            settings: Configuración validada
+        """
+        self.settings = settings
+        
+        # Instancias singleton (lazy loading)
+        self._llm_port: Optional[LLMPort] = None
+        self._stt_port: Optional[STTPort] = None
+        self._tts_port: Optional[TTSPort] = None
+        self._kb_port: Optional[KnowledgeBasePort] = None
+        self._audio_input_port: Optional[AudioInputPort] = None
+        self._assistant_service: Optional[AssistantService] = None
+    
+    def get_llm_port(self) -> LLMPort:
+        """
+        Factory para LLM (singleton).
+        
+        Returns:
+            Implementación del contrato LLMPort
+        """
+        if self._llm_port is None:
+            if self.settings.llm_provider == "gemini":
+                from adapters.output.llm.gemini_adapter import GeminiAdapter
+                self._llm_port = GeminiAdapter(self.settings.google_api_key)
+            elif self.settings.llm_provider == "openai":
+                from adapters.output.llm.openai_adapter import OpenAIAdapter
+                self._llm_port = OpenAIAdapter(self.settings.openai_api_key)
+            else:
+                raise ValueError(f"LLM provider no soportado: {self.settings.llm_provider}")
+        
+        return self._llm_port
+    
+    def get_stt_port(self) -> STTPort:
+        """
+        Factory para STT (singleton).
+        
+        Returns:
+            Implementación del contrato STTPort
+        """
+        if self._stt_port is None:
+            from adapters.output.speech.whisper_local_adapter import WhisperLocalAdapter
+            self._stt_port = WhisperLocalAdapter(
+                model_size=self.settings.whisper_model,
+                language=self.settings.stt_language
+            )
+        
+        return self._stt_port
+    
+    def get_tts_port(self) -> TTSPort:
+        """
+        Factory para TTS (singleton) con fallback automático.
+        
+        Returns:
+            Implementación del contrato TTSPort
+        """
+        if self._tts_port is None:
+            try:
+                if self.settings.tts_provider == "elevenlabs":
+                    from adapters.output.speech.elevenlabs_adapter import ElevenLabsAdapter
+                    self._tts_port = ElevenLabsAdapter(
+                        api_key=self.settings.elevenlabs_api_key,
+                        voice_id=self.settings.tts_voice_id
+                    )
+                elif self.settings.tts_provider == "pyttsx3":
+                    from adapters.output.speech.pyttsx3_fallback_adapter import Pyttsx3FallbackAdapter
+                    self._tts_port = Pyttsx3FallbackAdapter()
+            except Exception as e:
+                print(f"⚠️ Error inicializando TTS principal: {e}")
+                print(f"  Usando fallback pyttsx3...")
+                from adapters.output.speech.pyttsx3_fallback_adapter import Pyttsx3FallbackAdapter
+                self._tts_port = Pyttsx3FallbackAdapter()
+        
+        return self._tts_port
+    
+    def get_kb_port(self) -> KnowledgeBasePort:
+        """
+        Factory para Knowledge Base (singleton).
+        
+        Returns:
+            Implementación del contrato KnowledgeBasePort
+        """
+        if self._kb_port is None:
+            from adapters.output.database.chroma_adapter import ChromaDBAdapter
+            self._kb_port = ChromaDBAdapter(db_path=self.settings.chroma_db_path)
+        
+        return self._kb_port
+    
+    def get_audio_input_port(self) -> AudioInputPort:
+        """
+        Factory para entrada de audio (singleton).
+        
+        Returns:
+            Implementación del contrato AudioInputPort
+        """
+        if self._audio_input_port is None:
+            from adapters.input.mic_listener_adapter import MicListenerAdapter
+            self._audio_input_port = MicListenerAdapter(
+                sample_rate=self.settings.sample_rate,
+                silence_timeout_ms=self.settings.silence_timeout_ms
+            )
+        
+        return self._audio_input_port
+    
+    def get_assistant_service(self) -> AssistantService:
+        """
+        Factory para AssistantService (singleton).
+        
+        El orquestador principal recibe todos los ports inyectados.
+        
+        Returns:
+            Instancia de AssistantService con dependencias cableadas
+        """
+        if self._assistant_service is None:
+            self._assistant_service = AssistantService(
+                llm_port=self.get_llm_port(),
+                stt_port=self.get_stt_port(),
+                tts_port=self.get_tts_port(),
+                kb_port=self.get_kb_port()
+            )
+        
+        return self._assistant_service
+    
+    async def initialize(self) -> None:
+        """
+        Inicializa y valida todos los componentes.
+        
+        Ejecuta:
+        1. Validación de configuración
+        2. Carga de componentes (lazy loading)
+        3. Health checks
+        """
+        print("\n🚀 Inicializando Hotel Kiosk AI...")
+        print("=" * 60)
+        
+        try:
+            # Validar settings
+            self.settings.validate()
+            
+            # Cargar componentes (con lazy loading)
+            print("\n📦 Cargando componentes:")
+            
+            print("  1. STT (Whisper local)...", end=" ")
+            stt = self.get_stt_port()
+            print(f"✓ ({self.settings.whisper_model})")
+            
+            print("  2. LLM...", end=" ")
+            llm = self.get_llm_port()
+            print(f"✓ ({self.settings.llm_provider})")
+            
+            print("  3. TTS...", end=" ")
+            tts = self.get_tts_port()
+            print("✓")
+            
+            print("  4. Knowledge Base...", end=" ")
+            kb = self.get_kb_port()
+            print("✓")
+            
+            print("  5. Audio Input...", end=" ")
+            audio = self.get_audio_input_port()
+            print("✓")
+            
+            # Health checks
+            print("\n🏥 Health checks:")
+            
+            print("  LLM...", end=" ")
+            llm_ok = await llm.health_check()
+            print("✓" if llm_ok else "✗ (Verificar API keys)")
+            
+            print("  TTS...", end=" ")
+            tts_ok = await tts.health_check()
+            print("✓" if tts_ok else "⚠️ (Fallback disponible)")
+            
+            print("\n" + "=" * 60)
+            print("✓ Sistema listo\n")
+            
+        except Exception as e:
+            print(f"\n✗ Error inicializando: {e}")
+            raise
+
+# ==============================================================================
+# main.py - Hotel Kiosk AI - Punto de Entrada Principal
+# ==============================================================================
+
+import asyncio
+import os
+import sys
+import uuid
+from pathlib import Path
+from typing import Optional
+
+# Configurar path para imports
+sys.path.insert(0, str(Path(__file__).parent))
+
+from dotenv import load_dotenv
+import numpy as np
+
+try:
+    import sounddevice as sd
+except ImportError:
+    print("⚠️ sounddevice no instalado. Audio playback desactivado.")
+    sd = None
+
+from config.settings import Settings
+from config.container import DIContainer
+from app.domain.entities.conversation import Conversation
+from app.domain.entities.message import Message, MessageRole
+from app.ports.output.llm_port import LLMRequest
+from app.ports.output.knowledge_base_port import KnowledgeBaseQuery
+
+
+class HotelKioskApp:
+    """
+    Aplicación principal: Kiosco Interactivo del Hotel.
+    
+    Modos de ejecución:
+    - interactive: Escucha micrófono en tiempo real
+    - demo: Procesa preguntas predefinidas (sin micrófono)
+    """
+    
+    def __init__(self, settings: Settings):
+        """
+        Constructor.
+        
+        Args:
+            settings: Configuración validada
+        """
+        self.settings = settings
+        self.container = DIContainer(settings)
+        self.conversation: Optional[Conversation] = None
+        self.is_running = False
+    
+    async def initialize(self) -> None:
+        """Inicializa todos los componentes"""
+        await self.container.initialize()
+        
+        # Crear conversación
+        self.conversation = Conversation(
+            session_id=str(uuid.uuid4()),
+            language="es"
+        )
+        
+        # Inyectar conversación en el servicio
+        assistant_service = self.container.get_assistant_service()
+        assistant_service.set_conversation(self.conversation)
+        
+        # Cargar base de conocimiento
+        await self._load_knowledge_base()
+    
+    async def _load_knowledge_base(self) -> None:
+        """Carga documentos en la base de conocimiento"""
+        kb_port = self.container.get_kb_port()
+        
+        # Documentos de ejemplo del hotel
+        hotel_docs = [
+            "El hotel dispone de recepción 24/7. Teléfono: +34-XXX-XXXX. Email: info@hotel.com",
+            "Check-in a las 15:00, check-out a las 11:00. Puedes solicitar check-in anticipado o check-out tardío.",
+            "Disponemos de desayuno buffet de 6:30 a 10:30 en el restaurante principal.",
+            "El hotel cuenta con gimnasio, piscina climatizada, spa y zona de negocios.",
+            "WiFi gratuito en todas las habitaciones. Velocidad: 100 Mbps. Red: HOTEL-WIFI, Contraseña: disponible en recepción.",
+            "Tarifas: Habitación individual €80/noche, doble €100/noche, suite €150/noche.",
+            "Estacionamiento: €10/noche. Garaje cubierto con vigilancia 24/7.",
+            "Ubicación: Centro histórico, a 5 minutos del metro, 10 minutos del aeropuerto.",
+            "Tenemos servicio de conserjería para reservar excursiones y restaurantes.",
+            "Mascotas permitidas: €15/noche adicionales. Máximo 2 mascotas por habitación.",
+        ]
+        
+        print("📚 Cargando base de conocimiento...")
+        await kb_port.add_documents(
+            documents=hotel_docs,
+            metadata={"source": "hotel_info", "type": "static"}
+        )
+    
+    async def run_interactive_mode(self) -> None:
+        """
+        Modo interactivo: captura audio del micrófono.
+        
+        Flujo CORREGIDO (sin eco infinito):
+        1. Usuario habla → VAD detecta voz
+        2. Silencio → DETIENE micrófono
+        3. STT → LLM → TTS → Reproduce respuesta
+        4. REINICIA micrófono para siguiente pregunta
+        """
+        print("\n🎤 Modo interactivo: Habla cuando estés listo, Ctrl+C para salir")
+        print("=" * 60)
+        
+        self.is_running = True
+        assistant_service = self.container.get_assistant_service()
+        audio_input = self.container.get_audio_input_port()
+        
+        captured_audio: Optional[bytes] = None
+        silence_detected = False
+        
+        def on_audio_chunk(chunk: bytes) -> None:
+            """Callback cuando se captura audio"""
+            nonlocal captured_audio
+            if captured_audio is None:
+                captured_audio = chunk
+            else:
+                captured_audio += chunk
+        
+        def on_silence_detected() -> None:
+            """Callback cuando se detecta silencio (fin de discurso)"""
+            nonlocal silence_detected
+            silence_detected = True
+        
+        try:
+            # Iniciar escucha inicial
+            audio_input.start_listening(on_audio_chunk, on_silence_detected)
+            
+            while self.is_running:
+                try:
+                    # Esperar a que el usuario hable
+                    await asyncio.sleep(0.1)
+                    
+                    # Si detectamos silencio y hay audio capturado suficiente
+                    if silence_detected and captured_audio and len(captured_audio) > 1000:
+                        # ============================================================
+                        # CORRECCIÓN CRÍTICA #1: DETENER MICRÓFONO (Prevenir Eco)
+                        # ============================================================
+                        audio_input.stop_listening()
+                        print("\n🔄 Procesando...")
+                        
+                        try:
+                            # Flujo completo: Audio → Texto → Respuesta → Audio
+                            response_text, response_audio = await assistant_service.process_audio(
+                                captured_audio
+                            )
+                            
+                            # Mostrar respuesta
+                            print(f"\n🤖 Asistente: {response_text}")
+                            
+                            # Reproducir audio (sin que el mic escuche)
+                            if response_audio:
+                                await self._play_audio(response_audio)
+                            
+                            # Mostrar contexto del historial
+                            if self.conversation and len(self.conversation.messages) >= 2:
+                                print(f"\n📋 Historial:")
+                                for msg in self.conversation.messages[-2:]:
+                                    content_preview = msg.content[:80] + "..." if len(msg.content) > 80 else msg.content
+                                    print(f"  {msg.role.value.upper()}: {content_preview}")
+                            
+                        except Exception as e:
+                            print(f"✗ Error procesando: {e}")
+                        
+                        finally:
+                            # ========================================================
+                            # CORRECCIÓN CRÍTICA #1.2: LIMPIAR Y REINICIAR
+                            # ========================================================
+                            captured_audio = None
+                            silence_detected = False
+                            
+                            print("\n🎤 Escuchando de nuevo...")
+                            
+                            # Reiniciar micrófono para siguiente pregunta
+                            audio_input.start_listening(on_audio_chunk, on_silence_detected)
+                        
+                except KeyboardInterrupt:
+                    self.is_running = False
+                    break
+                    
+                except Exception as e:
+                    print(f"✗ Error: {e}")
+                    await asyncio.sleep(1)
+                    
+        finally:
+            audio_input.stop_listening()
+            print("\n✓ Modo interactivo finalizado")
+    
+    async def run_demo_mode(self) -> None:
+        """
+        Modo demo: simula preguntas predefinidas.
+        
+        Útil para:
+        - Testing sin micrófono
+        - Demostración
+        - Benchmarking
+        """
+        print("\n🎬 Modo demo: Procesando preguntas de ejemplo")
+        print("=" * 60)
+        
+        questions = [
+            "¿Cuál es el horario de check-in?",
+            "¿Hay WiFi en las habitaciones?",
+            "¿Dónde está ubicado el hotel?",
+            "¿Puedo traer mi mascota?",
+        ]
+        
+        assistant_service = self.container.get_assistant_service()
+        
+        for i, question in enumerate(questions, 1):
+            print(f"\n📝 Pregunta {i}: {question}")
+            
+            try:
+                # Simular que viene de STT (saltamos la captura de audio)
+                
+                # Añadir pregunta al historial
+                if self.conversation:
+                    self.conversation.add_message(
+                        Message(question, MessageRole.USER)
+                    )
+                
+                # Buscar contexto
+                kb_port = self.container.get_kb_port()
+                kb_results = await kb_port.search(
+                    KnowledgeBaseQuery(query_text=question, top_k=3)
+                )
+                kb_context = "\n".join([r.content for r in kb_results])
+                
+                # Generar respuesta
+                llm_port = self.container.get_llm_port()
+                llm_request = LLMRequest(
+                    user_message=question,
+                    conversation_history=self.conversation.get_recent_context(3) if self.conversation else "",
+                    hotel_context=kb_context,
+                    language="es"
+                )
+                
+                llm_response = await llm_port.generate(llm_request)
+                response_text = llm_response.text
+                
+                # Guardar en historial
+                if self.conversation:
+                    self.conversation.add_message(
+                        Message(response_text, MessageRole.ASSISTANT)
+                    )
+                
+                print(f"🤖 Respuesta: {response_text}")
+                print(f"⏱️ Latencia: {llm_response.latency_ms:.1f}ms")
+                
+            except Exception as e:
+                print(f"✗ Error: {e}")
+            
+            await asyncio.sleep(1)
+        
+        print("\n✓ Demo finalizado")
+    
+    async def _play_audio(self, audio_bytes: bytes) -> None:
+        """
+        Reproduce audio usando sounddevice.
+        
+        Args:
+            audio_bytes: Audio en formato WAV
+        """
+        if sd is None:
+            print("⚠️ sounddevice no disponible, saltando reproducción")
+            return
+        
+        try:
+            import io
+            import wave
+            
+            # Parsear WAV
+            with wave.open(io.BytesIO(audio_bytes), 'rb') as wav_file:
+                frames = wav_file.readframes(wav_file.getnframes())
+                audio_data = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768
+                sample_rate = wav_file.getframerate()
+            
+            # Reproducir
+            print("🔊 Reproduciendo respuesta...")
+            sd.play(audio_data, sample_rate)
+            sd.wait()
+            print("✓ Reproducción finalizada")
+            
+        except Exception as e:
+            print(f"⚠️ No se pudo reproducir audio: {e}")
+
+
+async def main():
+    """Punto de entrada principal"""
+    
+    # Cargar variables de entorno
+    load_dotenv()
+    
+    # Crear instancia de settings
+    settings = Settings()
+    
+    if settings.debug:
+        print("🔍 Modo DEBUG activado")
+    
+    # Crear aplicación
+    app = HotelKioskApp(settings)
+    
+    try:
+        # Inicializar
+        await app.initialize()
+        
+        # Elegir modo de ejecución
+        mode = sys.argv[1] if len(sys.argv) > 1 else "interactive"
+        
+        if mode == "demo":
+            print("\n✓ Iniciando en MODO DEMO")
+            await app.run_demo_mode()
+        else:
+            print("\n✓ Iniciando en MODO INTERACTIVO")
+            await app.run_interactive_mode()
+        
+    except KeyboardInterrupt:
+        print("\n\n👋 Interrupción del usuario")
+    
+    except Exception as e:
+        print(f"\n✗ Error fatal: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    # Ejecutar
+    asyncio.run(main())
+
+# ==============================================================================
+# .env.example - Template de Variables de Entorno
+# ==============================================================================
+
+# ========================================
+# LLM CONFIGURATION
+# ========================================
+LLM_PROVIDER=gemini
+GOOGLE_API_KEY=your_google_api_key_here
+OPENAI_API_KEY=
+
+# ========================================
+# STT CONFIGURATION (Speech-to-Text)
+# ========================================
+WHISPER_MODEL=base
+STT_LANGUAGE=es
+
+# ========================================
+# TTS CONFIGURATION (Text-to-Speech)
+# ========================================
+TTS_PROVIDER=elevenlabs
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+TTS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
+
+# ========================================
+# AUDIO CAPTURE
+# ========================================
+SAMPLE_RATE=16000
+CHUNK_SIZE=1024
+SILENCE_TIMEOUT_MS=1500
+
+# ========================================
+# DATABASE
+# ========================================
+CHROMA_DB_PATH=./data/chroma_db
+
+# ========================================
+# DEBUG
+# ========================================
+DEBUG=False
+
+
+# ==============================================================================
+# requirements.txt - Dependencias Python
+# ==============================================================================
+
+# Core
+python-dotenv==1.0.0
+numpy==1.24.0
+
+# LLM & API
+google-generativeai==0.8.0
+openai==1.3.0
+
+# STT (Speech-to-Text)
+openai-whisper==20231117
+
+# TTS (Text-to-Speech)
+elevenlabs==0.2.0
+pyttsx3==2.90
+
+# Audio I/O
+pyaudio==0.2.13
+sounddevice==0.4.5
+webrtcvad==2.0.10
+
+# Database
+chromadb==0.4.22
+
+# Utilities
+aiofiles==23.2.1
+
+
+# ==============================================================================
+# .gitignore
+# ==============================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Environment
+.env
+*.key
+
+# Data
+data/
+logs/
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+temp_audio/
+*.wav
+*.mp3
+
+
+# ==============================================================================
+# README.md - Guía de Inicio Rápido
+# ==============================================================================
+
+# 🏨 Hotel Kiosk AI
+
+Concierge Virtual activado por voz para kioscos interactivos de hotel.
+
+## 🚀 Quick Start
+
+### 1. Instalación
+
+```bash
+# Clonar proyecto
+cd hotel_kiosk_ai
+
+# Crear entorno virtual
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# o
+venv\Scripts\activate  # Windows
+
+# Instalar dependencias
+pip install -r requirements.txt
+
+# Descargar modelos Whisper
+python -c "import whisper; whisper.load_model('base')"
+
+# Crear estructura
+mkdir -p data/chroma_db data/temp_audio logs
+```
+
+### 2. Configuración
+
+```bash
+# Copiar template
+cp .env.example .env
+
+# Editar .env con tus API keys
+nano .env
+```
+
+Necesitas:
+- `GOOGLE_API_KEY` de https://ai.google.dev/
+- `ELEVENLABS_API_KEY` de https://elevenlabs.io/
+
+### 3. Ejecutar
+
+```bash
+# Modo Demo (sin micrófono)
+python main.py demo
+
+# Modo Interactivo (con micrófono)
+python main.py interactive
+```
+
+## 📁 Estructura
+
+```
+hotel_kiosk_ai/
+├── app/
+│   ├── domain/          # Lógica pura (sin deps externas)
+│   │   ├── entities/    # Message, Hotel, Conversation
+│   │   └── services/    # AssistantService (orquestador)
+│   └── ports/           # Interfaces (ABC)
+│       ├── input/       # AudioInputPort
+│       └── output/      # LLMPort, STTPort, TTSPort, KBPort
+├── adapters/
+│   ├── utils/           # CircuitBreaker, Retry
+│   ├── input/           # MicListener + VAD
+│   └── output/          # Gemini, Whisper, ElevenLabs, ChromaDB
+├── config/              # Settings + DIContainer
+├── main.py              # Entrypoint
+└── requirements.txt
+```
+
+## 🎯 Arquitectura
+
+**Patrón**: Hexagonal (Ports & Adapters)
+
+**Flujo**:
+1. Usuario habla → PyAudio captura → VAD detecta voz
+2. Whisper (local) transcribe → Texto
+3. ChromaDB busca contexto relevante (RAG)
+4. Gemini genera respuesta → Texto
+5. ElevenLabs sintetiza → Audio
+6. Speaker reproduce → Usuario escucha
+
+## 🔧 Troubleshooting
+
+### "No module named 'pyaudio'"
+```bash
+# Ubuntu/Debian
+sudo apt-get install portaudio19-dev
+pip install pyaudio
+
+# Windows: Descargar wheel precompilado
+# https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio
+```
+
+### "GOOGLE_API_KEY not found"
+```bash
+# Verificar .env
+cat .env | grep GOOGLE_API_KEY
+
+# Asegurar que está cargado
+python -c "from dotenv import load_dotenv; import os; load_dotenv(); print(os.getenv('GOOGLE_API_KEY'))"
+```
+
+### "Audio muy lento"
+```bash
+# Cambiar a modelo más pequeño en .env
+WHISPER_MODEL=tiny  # En lugar de base
+```
+
+## 📊 Métricas Esperadas
+
+- **Latencia Total**: 2-4s (E2E)
+- **STT (Whisper)**: 200-500ms (local)
+- **LLM (Gemini)**: 1-2s (cloud)
+- **TTS (ElevenLabs)**: 300-500ms (cloud)
+
+## 🛡️ Resiliencia
+
+- **Circuit Breaker**: 3 fallos → abre, 30s timeout
+- **Retry**: 3 intentos con backoff exponencial
+- **Fallback**: ElevenLabs → pyttsx3 (local)
+- **Timeout**: 3s para LLM, 5s para TTS
+
+## 📞 Soporte
+
+Para issues, revisar:
+- Logs en terminal (`DEBUG=True`)
+- Sección Troubleshooting
+- Documentación de librerías
+
+## 📄 Licencia
+
+MIT License
+
+

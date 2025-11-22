@@ -1,0 +1,25 @@
+# Core
+python-dotenv==1.0.0
+numpy==1.24.0
+
+# LLM & API
+google-generativeai==0.8.0
+openai==1.3.0
+
+# STT (Speech-to-Text)
+openai-whisper==20231117
+
+# TTS (Text-to-Speech)
+elevenlabs==0.2.0
+pyttsx3==2.90
+
+# Audio I/O
+pyaudio==0.2.13
+sounddevice==0.4.5
+webrtcvad==2.0.10
+
+# Database
+chromadb==0.4.22
+
+# Utilities
+aiofiles==23.2.1
