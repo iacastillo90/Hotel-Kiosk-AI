@@ -1,116 +1,47 @@
 from enum import Enum
 from dataclasses import dataclass
-import re
-
+from typing import Dict, Any, Optional
 
 class Intent(Enum):
-    """Intents soportados por el sistema"""
-    CHECK_IN = "check_in"
-    BOOKING = "booking"
-    CONTACT = "contact"
-    INFO = "info"  # Pregunta general
-    GREETING = "greeting"
-    UNKNOWN = "unknown"
-
+    GREETING = "greeting"       # Hola, buenos días -> Respuesta Script (Rápido)
+    CHECK_IN = "check_in"       # Quiero hacer checkin -> Flujo Lógico
+    BOOKING = "booking"         # Quiero reservar -> Flujo Lógico
+    INFO = "info"               # ¿A qué hora es el desayuno? -> RAG + LLM (Lento)
+    CONTACT = "contact"         # Contacto humano
+    UNKNOWN = "unknown"         # ??? -> Fallback
 
 @dataclass
 class IntentResult:
-    """Resultado de detección de intent"""
     intent: Intent
-    confidence: float  # 0.0 - 1.0
-    entities: dict  # {entity_type: value}
-
+    confidence: float
+    entities: Dict[str, Any] # Ej: {"date": "2023-10-10"}
 
 class IntentService:
     """
-    Detecta intenciones del usuario usando patterns y/o ML.
-    Python puro, sin dependencias externas.
+    Servicio de dominio para clasificar intenciones.
+    Puede usar RegEx (ultra rápido) o Embeddings (rápido) o LLM Zero-shot (lento).
     """
     
-    def __init__(self):
-        # Patterns simples (regex) para cada intent
-        self.patterns = {
-            Intent.CHECK_IN: [
-                r"check.?in", r"hacer.*entrada", r"registra.*llegada"
-            ],
-            Intent.BOOKING: [
-                r"reserv", r"book", r"mesa", r"restaurante"
-            ],
-            Intent.CONTACT: [
-                r"teléfono", r"email", r"contacto", r"llamar"
-            ],
-            Intent.GREETING: [
-                r"hola", r"buenos", r"hi", r"hello", r"saludos"
-            ],
-        }
-    
     def detect_intent(self, text: str) -> IntentResult:
-        """
-        Detecta intent de un texto.
+        text_lower = text.lower().strip()
         
-        Args:
-            text: Mensaje del usuario
+        # 1. Heurísticas Rápidas (RegEx / Keywords) - Latencia < 1ms
+        if any(w in text_lower for w in ["hola", "buenos dias", "buenas tardes", "hey", "buenas"]):
+            return IntentResult(Intent.GREETING, 1.0, {})
             
-        Returns:
-            IntentResult con intent detectado y confianza
-        """
-        text_lower = text.lower()
-        scores = {}
-        
-        # Scoring basado en patterns
-        for intent, patterns in self.patterns.items():
-            score = 0
-            for pattern in patterns:
-                if re.search(pattern, text_lower):
-                    score += 1
-            scores[intent] = score
-        
-        # Encontrar intent con máximo score
-        if max(scores.values()) > 0:
-            best_intent = max(scores, key=scores.get)
-            confidence = min(scores[best_intent] / 2, 1.0)  # Normalizar
-        else:
-            best_intent = Intent.UNKNOWN
-            confidence = 0.0
-        
-        # Extraer entidades según el intent
-        entities = self._extract_entities(text_lower, best_intent)
-        
-        return IntentResult(
-            intent=best_intent,
-            confidence=confidence,
-            entities=entities
-        )
-    
-    def _extract_entities(self, text: str, intent: Intent) -> dict:
-        """
-        Extrae entidades según el intent.
-        
-        Args:
-            text: Texto en lowercase
-            intent: Intent detectado
+        if any(w in text_lower for w in ["check-in", "check in", "llegada", "registrarme", "registro"]):
+            return IntentResult(Intent.CHECK_IN, 0.9, {})
             
-        Returns:
-            Diccionario con entidades extraídas
-        """
-        entities = {}
-        
-        if intent == Intent.BOOKING:
-            # Buscar fechas (formato DD/MM)
-            date_match = re.search(r'(\d{1,2})[/-](\d{1,2})', text)
-            if date_match:
-                entities["date"] = f"{date_match.group(1)}/{date_match.group(2)}"
+        if any(w in text_lower for w in ["reservar", "reserva", "habitacion", "cuarto", "alojamiento"]):
+            return IntentResult(Intent.BOOKING, 0.8, {})
             
-            # Buscar hora
-            time_match = re.search(r'(\d{1,2}):?(\d{2})?', text)
-            if time_match:
-                hour = time_match.group(1)
-                minute = time_match.group(2) or "00"
-                entities["time"] = f"{hour}:{minute}"
+        if any(w in text_lower for w in ["contacto", "llamar", "telefono", "email", "correo", "hablar con alguien"]):
+            return IntentResult(Intent.CONTACT, 0.9, {})
+
+        if any(w in text_lower for w in ["horario", "donde", "ubicacion", "wifi", "clave", "piscina", "desayuno", "cena", "restaurante", "gym", "gimnasio"]):
+            return IntentResult(Intent.INFO, 0.8, {})
             
-            # Buscar número de personas
-            party_match = re.search(r'(\d+)\s*(?:person|gente|comensales)', text)
-            if party_match:
-                entities["party_size"] = int(party_match.group(1))
+        # 2. (Opcional Futuro) Semantic Search con ChromaDB para clasificación
         
-        return entities
+        # Default
+        return IntentResult(Intent.UNKNOWN, 0.0, {})

@@ -1,137 +1,123 @@
-import whisper
 import asyncio
 import time
-import tempfile
-import os
+import numpy as np
+import io
+import logging
 from typing import Optional
+
+# Usamos faster_whisper en lugar de whisper estándar
+try:
+    from faster_whisper import WhisperModel
+except ImportError:
+    raise ImportError("Instala faster-whisper: pip install faster-whisper")
 
 from app.ports.output.stt_port import STTPort, STTResponse
 
+# Configuración de Logging
+logger = logging.getLogger(__name__)
 
 class WhisperLocalAdapter(STTPort):
     """
-    Adaptador para Whisper local (offline).
+    Adaptador optimizado usando Faster-Whisper (CTranslate2).
     
-    Implementa el contrato STTPort usando OpenAI Whisper localmente.
-    
-    Características:
-    - 100% offline (no requiere internet)
-    - Modelos: tiny (~39MB, rápido) o base (~140MB, preciso)
-    - Latencia: ~200-500ms en Intel N100
-    - Privacidad: Audio nunca sale del dispositivo
-    
-    Ventajas vs Cloud STT:
-    - Sin latencia de red
-    - Sin costos por request
-    - Sin límites de uso
-    - Privacidad garantizada
-    
-    Trade-offs:
-    - Menor precisión que modelos cloud (95% vs 98%)
-    - Consume CPU localmente
-    - Primera ejecución lenta (carga modelo)
+    Mejoras vs versión anterior:
+    1. IN-MEMORY: No escribe archivos temporales (WAV) en disco.
+    2. VELOCIDAD: Usa CTranslate2 (hasta 4x más rápido en CPU).
+    3. QUANTIZATION: Usa int8 para inferencia veloz sin perder mucha precisión.
     """
     
     def __init__(self, model_size: str = "base", language: str = "es"):
         """
-        Constructor.
-        
+        Inicializa el modelo optimizado.
         Args:
-            model_size: Tamaño del modelo ('tiny', 'base', 'small', 'medium', 'large')
-                       - tiny: ~39MB, más rápido (~200ms), menos preciso
-                       - base: ~140MB, balance (~500ms), buena precisión ✓ RECOMENDADO
-                       - small: ~460MB, más lento (~1s), mejor precisión
-            language: Código ISO-639-1 del idioma (ej: "es", "en")
-        
-        Raises:
-            RuntimeError: Si el modelo no se puede cargar
+            model_size: 'tiny', 'base', 'small' (Recomendado 'base' o 'small' para CPU)
+            language: 'es'
         """
         self.model_size = model_size
         self.language = language
+        self._model: Optional[WhisperModel] = None
         
-        print(f"📥 Cargando modelo Whisper ({model_size})...")
+        # Warm-up en inicialización (bloqueante intencional al inicio para no sufrir después)
+        logger.info(f"🚀 Cargando Faster-Whisper ({model_size}) en CPU con int8...")
+        start = time.time()
         
-        try:
-            # Cargar modelo (primera vez descarga ~140MB)
-            self.model = whisper.load_model(model_size)
-            print(f"✓ Whisper {model_size} cargado")
-        except Exception as e:
-            raise RuntimeError(f"Error cargando Whisper: {e}")
-    
+        # device="cpu", compute_type="int8" es la clave para velocidad en laptops/kioscos
+        self._model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        
+        logger.info(f"✓ Modelo cargado en {time.time() - start:.2f}s")
+
     async def transcribe(self, audio_bytes: bytes) -> STTResponse:
         """
-        Transcribe audio a texto (offline).
-        
-        Args:
-            audio_bytes: Audio en formato WAV (16-bit PCM, mono, 16kHz)
-            
-        Returns:
-            Texto transcrito con metadatos
-            
-        Raises:
-            Exception: Si la transcripción falla
+        Transcribe audio directamente desde memoria sin tocar el disco.
         """
+        if not audio_bytes:
+            raise ValueError("Audio bytes vacíos")
+
         start_time = time.time()
         
+        loop = asyncio.get_event_loop()
+        
         try:
-            # Whisper requiere un archivo WAV válido con encabezado
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-                tmp_path = tmp.name
+            # 1. Pre-procesamiento de audio (CPU Bound) -> Ejecutar en thread
+            # Convertir bytes raw (PCM 16-bit) a float32 numpy array normalizado
+            audio_array = await loop.run_in_executor(None, self._bytes_to_float_array, audio_bytes)
             
-            # Escribir encabezado WAV usando wave module
-            import wave
-            with wave.open(tmp_path, 'wb') as wav_file:
-                wav_file.setnchannels(1)        # Mono
-                wav_file.setsampwidth(2)        # 16-bit (2 bytes)
-                wav_file.setframerate(16000)    # 16kHz
-                wav_file.writeframes(audio_bytes)
-            
-            # Transcribir (bloqueante, pero local)
-            # Ejecutamos en executor para no bloquear event loop
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None,
-                lambda: self.model.transcribe(
-                    tmp_path,
-                    language=self.language,
-                    fp16=False,  # Desactivar FP16 para compatibilidad CPU
-                )
+            # 2. Inferencia (CPU Bound intenso) -> Ejecutar en thread
+            result_text, confidence = await loop.run_in_executor(
+                None, 
+                self._run_inference, 
+                audio_array
             )
-            
-            # Limpiar archivo temporal
-            try:
-                os.unlink(tmp_path)
-            except:
-                pass
             
             latency_ms = (time.time() - start_time) * 1000
             
-            # Extraer confianza promedio de los segmentos
-            confidence = 0.0
-            if result.get('segments'):
-                confidences = [seg.get('avg_logprob', 0.0) for seg in result['segments']]
-                if confidences:
-                    # avg_logprob está en escala logarítmica negativa
-                    # Convertir a 0-1 (aproximado)
-                    confidence = min(1.0, max(0.0, 1.0 + (sum(confidences) / len(confidences)) / 5.0))
+            logger.info(f"🎙️ STT: '{result_text}' | Conf: {confidence:.2f} | ⏱️ {latency_ms:.0f}ms")
             
             return STTResponse(
-                text=result['text'].strip(),
+                text=result_text,
                 language=self.language,
                 confidence=confidence,
                 latency_ms=latency_ms
             )
             
         except Exception as e:
-            print(f"✗ Error STT: {e}")
-            raise
-    
-    def set_language(self, language: str) -> None:
-        """
-        Configura el idioma de transcripción.
+            logger.error(f"✗ Error STT Crítico: {e}")
+            # Fallback silencioso o re-raise según política
+            return STTResponse(text="", language=self.language, confidence=0.0, latency_ms=0.0)
+
+    def _bytes_to_float_array(self, audio_bytes: bytes) -> np.ndarray:
+        """Convierte bytes PCM 16-bit a array Float32 normalizado (-1.0 a 1.0)"""
+        # Asumimos que audio_bytes viene directo de pyaudio (int16)
+        # frombuffer es CERO-COPY (muy rápido)
+        int16_array = np.frombuffer(audio_bytes, dtype=np.int16)
         
-        Args:
-            language: Código ISO-639-1 (ej: "es", "en", "fr")
-        """
+        # Normalización vectorizada
+        return int16_array.astype(np.float32) / 32768.0
+
+    def _run_inference(self, audio_array: np.ndarray) -> tuple[str, float]:
+        """Ejecuta la inferencia bloqueante de Faster-Whisper"""
+        segments, info = self._model.transcribe(
+            audio_array,
+            language=self.language,
+            beam_size=5,
+            vad_filter=True,  # VAD interno ayuda a filtrar ruido extra
+            vad_parameters=dict(min_silence_duration_ms=500)
+        )
+        
+        # Faster-whisper devuelve un generador, hay que consumirlo
+        text_segments = []
+        scores = []
+        
+        for segment in segments:
+            text_segments.append(segment.text)
+            scores.append(np.exp(segment.avg_logprob)) # logprob a probabilidad
+            
+        final_text = " ".join(text_segments).strip()
+        
+        # Calcular confianza promedio
+        avg_confidence = sum(scores) / len(scores) if scores else 0.0
+        
+        return final_text, avg_confidence
+
+    def set_language(self, language: str) -> None:
         self.language = language
-        print(f"✓ Idioma STT configurado a: {language}")

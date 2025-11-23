@@ -8,6 +8,7 @@ from app.ports.output.llm_port import LLMPort, LLMRequest
 from app.ports.output.stt_port import STTPort
 from app.ports.output.tts_port import TTSPort, TTSRequest
 from app.ports.output.knowledge_base_port import KnowledgeBasePort, KnowledgeBaseQuery
+from app.ports.output.repository_port import RepositoryPort
 from app.domain.services.intent_service import IntentService, Intent
 
 
@@ -27,7 +28,8 @@ class AssistantService:
                  llm_port: LLMPort,
                  stt_port: STTPort,
                  tts_port: TTSPort,
-                 kb_port: KnowledgeBasePort):
+                 kb_port: KnowledgeBasePort,
+                 repository_port: RepositoryPort):
         """
         Constructor con inyección de dependencias.
         
@@ -41,6 +43,7 @@ class AssistantService:
         self.stt_port = stt_port
         self.tts_port = tts_port
         self.kb_port = kb_port
+        self.repository_port = repository_port
         self.conversation: Optional[Conversation] = None
         
         # NUEVO: Intent Service para routing inteligente
@@ -131,6 +134,15 @@ class AssistantService:
             elapsed_ms = (time.time() - start_time) * 1000
             print(f"✓ Procesamiento completo: {elapsed_ms:.1f}ms")
             
+            # 5. PERSISTENCIA (Async)
+            # Guardamos el log de la interacción sin bloquear
+            if self.repository_port:
+                await self.repository_port.log_interaction(
+                    user_text=user_text,
+                    intent=intent_result.intent.value,
+                    response=assistant_text
+                )
+            
             return assistant_text, tts_response.audio_bytes
             
         except Exception as e:
@@ -154,6 +166,13 @@ class AssistantService:
     async def _handle_booking(self, user_text: str, entities: dict) -> str:
         """Maneja reservas (ejemplo simplificado)"""
         if entities.get("date") and entities.get("time"):
+            # Guardar reserva en BD
+            if self.repository_port:
+                await self.repository_port.save_booking({
+                    "name": "Usuario Voz", # En futuro extraer nombre real
+                    "date": f"{entities['date']} {entities['time']}"
+                })
+                
             return (
                 f"Entendido, quieres reservar para el {entities['date']} a las {entities['time']}. "
                 f"¿Para cuántas personas?"

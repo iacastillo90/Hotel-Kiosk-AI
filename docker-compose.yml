@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: hotel_kiosk_app
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=hotel_kiosk
+      - DB_USER=root
+      - DB_PASSWORD=root
+      # Audio settings
+      - Keep_Audio_Running=1
+    devices:
+      # Mapeo de dispositivo de audio para Linux (ALSA)
+      - "/dev/snd:/dev/snd"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    container_name: hotel_kiosk_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: hotel_kiosk
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+
+volumes:
+  db_data:

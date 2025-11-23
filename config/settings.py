@@ -44,6 +44,14 @@ class Settings:
     # =========================================================================
     chroma_db_path: str = field(default_factory=lambda: os.getenv("CHROMA_DB_PATH", "./data/chroma_db"))
     
+    # MySQL Settings
+    use_database: bool = field(default_factory=lambda: os.getenv("USE_DATABASE", "False").lower() == "true")
+    db_host: str = field(default_factory=lambda: os.getenv("DB_HOST", "localhost"))
+    db_port: int = field(default_factory=lambda: int(os.getenv("DB_PORT", "3306")))
+    db_name: str = field(default_factory=lambda: os.getenv("DB_NAME", "hotel_kiosk"))
+    db_user: str = field(default_factory=lambda: os.getenv("DB_USER", "root"))
+    db_password: str = field(default_factory=lambda: os.getenv("DB_PASSWORD", "root"))
+    
     # =========================================================================
     # Debug
     # =========================================================================

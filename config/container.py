@@ -4,7 +4,9 @@ from config.settings import Settings
 from app.ports.output.llm_port import LLMPort
 from app.ports.output.stt_port import STTPort
 from app.ports.output.tts_port import TTSPort
+from app.ports.output.tts_port import TTSPort
 from app.ports.output.knowledge_base_port import KnowledgeBasePort
+from app.ports.output.repository_port import RepositoryPort
 from app.ports.input.audio_input_port import AudioInputPort
 from app.domain.services.assistant_service import AssistantService
 
@@ -37,7 +39,9 @@ class DIContainer:
         self._llm_port: Optional[LLMPort] = None
         self._stt_port: Optional[STTPort] = None
         self._tts_port: Optional[TTSPort] = None
+        self._tts_port: Optional[TTSPort] = None
         self._kb_port: Optional[KnowledgeBasePort] = None
+        self._repository_port: Optional[RepositoryPort] = None
         self._audio_input_port: Optional[AudioInputPort] = None
         self._assistant_service: Optional[AssistantService] = None
     
@@ -115,6 +119,32 @@ class DIContainer:
         
         return self._kb_port
     
+    def get_repository_port(self) -> RepositoryPort:
+        """
+        Factory inteligente para Repository.
+        Decide si usar MySQL real o Mock (memoria) según configuración.
+        """
+        if self._repository_port is None:
+            # Usamos la variable del settings.py, no os.getenv directo
+            # Esto mantiene la configuración centralizada.
+            if self.settings.use_database:
+                print("🔌 Conectando a Base de Datos MySQL...")
+                from adapters.output.database.mysql_adapter import MySQLAdapter
+                
+                self._repository_port = MySQLAdapter(
+                    host=self.settings.db_host,
+                    user=self.settings.db_user,
+                    password=self.settings.db_password,
+                    database=self.settings.db_name,
+                    port=self.settings.db_port
+                )
+            else:
+                print("⚠️ Modo DB desactivado: Usando Mock en memoria")
+                from adapters.output.database.mock_adapter import MockRepositoryAdapter
+                self._repository_port = MockRepositoryAdapter()
+        
+        return self._repository_port
+    
     def get_audio_input_port(self) -> AudioInputPort:
         """
         Factory para entrada de audio (singleton).
@@ -134,18 +164,15 @@ class DIContainer:
     def get_assistant_service(self) -> AssistantService:
         """
         Factory para AssistantService (singleton).
-        
-        El orquestador principal recibe todos los ports inyectados.
-        
-        Returns:
-            Instancia de AssistantService con dependencias cableadas
         """
+        # CORRECCIÓN: Aseguramos que sea Singleton
         if self._assistant_service is None:
             self._assistant_service = AssistantService(
                 llm_port=self.get_llm_port(),
                 stt_port=self.get_stt_port(),
                 tts_port=self.get_tts_port(),
-                kb_port=self.get_kb_port()
+                kb_port=self.get_kb_port(),
+                repository_port=self.get_repository_port()
             )
         
         return self._assistant_service
@@ -185,7 +212,11 @@ class DIContainer:
             kb = self.get_kb_port()
             print("✓")
             
-            print("  5. Audio Input...", end=" ")
+            print("  5. Database (MySQL)...", end=" ")
+            repo = self.get_repository_port()
+            print("✓")
+
+            print("  6. Audio Input...", end=" ")
             audio = self.get_audio_input_port()
             print("✓")
             

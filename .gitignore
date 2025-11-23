@@ -1,0 +1,16 @@
+# Entorno Virtual (CRÍTICO)
+venv/
+env/
+
+# Variables de Entorno (SEGURIDAD: No subir claves API)
+.env
+
+# Archivos temporales de Python
+__pycache__/
+*.pyc
+
+# Base de datos (Es binaria y pesada, mejor generarla con ingest.py)
+data/chroma_db/
+
+# Logs
+*.log
