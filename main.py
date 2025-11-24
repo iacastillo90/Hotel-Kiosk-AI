@@ -5,6 +5,8 @@ import uuid
 import logging
 from pathlib import Path
 from typing import Optional, AsyncGenerator
+import subprocess
+import shutil
 
 # Configurar path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -105,7 +107,6 @@ class HotelKioskApp:
                 # Validar audio capturado
                 if captured_audio and len(captured_audio) > 4000: # Min ~0.25s
                     logger.info(f"🔄 Procesando audio ({len(captured_audio)} bytes)...")
-                    
                     try:
                         # 3. Pipeline IA (STT -> Intent -> LLM -> TTS)
                         # Convertir bytes a async generator
@@ -114,7 +115,7 @@ class HotelKioskApp:
                         
                         text_resp, audio_resp = await assistant.process_audio(audio_generator())
                         
-                        print(f"\n🤖: {text_resp}")
+                        print(f"\n📝 Transcripción final: {text_resp}")
                         
                         # 4. Reproducir Audio (Off-thread para no bloquear)
                         if audio_resp:
@@ -139,81 +140,52 @@ class HotelKioskApp:
 
     async def _play_audio(self, audio_stream: AsyncGenerator[bytes, None]) -> None:
         """
-        Reproduce audio en streaming desde un async generator.
-        Compatible con audio RAW PCM 16kHz (ElevenLabs) o acumulado (Pyttsx3).
+        Reproductor Nivel Dios: Consume stream de audio y lo reproduce en tiempo real.
+        Usa FFmpeg/FFplay para manejar el stream de MP3 sin archivos temporales.
         """
-        if sd is None:
+        # Verificar si tenemos ffplay (parte de ffmpeg)
+        ffplay_path = shutil.which("ffplay")
+        if not ffplay_path:
+            logger.error("❌ ffplay no encontrado. Instala ffmpeg.")
             return
-        
-        # Acumular todo el audio del stream
-        audio_chunks = []
-        async for chunk in audio_stream:
-            if chunk:
-                audio_chunks.append(chunk)
-        
-        if not audio_chunks:
-            return
-        
-        # Concatenar todos los chunks
-        audio_bytes = b''.join(audio_chunks)
 
-        def _blocking_play():
-            import io
-            import wave
-            import tempfile
-            import subprocess
-            
-            try:
-                # 1. Intentar reproducir como WAV nativo
-                with wave.open(io.BytesIO(audio_bytes), 'rb') as f:
-                    data = f.readframes(f.getnframes())
-                    fs = f.getframerate()
-                    audio_np = np.frombuffer(data, dtype=np.int16)
-                    
-                sd.play(audio_np, fs)
-                sd.wait()
-
-            except wave.Error:
-                # 2. Si falla, asumimos MP3 (ElevenLabs) o PCM raw
+        # Iniciar proceso de reproducción que lee de STDIN (pipe)
+        # -i pipe:0 : lee de entrada estándar
+        # -nodisp : sin ventana gráfica
+        # -autoexit : cierra al terminar
+        player_process = subprocess.Popen(
+            [ffplay_path, "-i", "pipe:0", "-nodisp", "-autoexit", "-hide_banner"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        
+        try:
+            chunk_count = 0
+            async for chunk in audio_stream:
+                if not chunk: continue
+                
+                # Escribir chunk al stdin del reproductor inmediatamente
+                # Esto se hace en un thread para no bloquear el loop async
                 try:
-                    # Intentar como PCM raw 16kHz mono
-                    audio_np = np.frombuffer(audio_bytes, dtype=np.int16)
-                    sd.play(audio_np, 16000)
-                    sd.wait()
+                    player_process.stdin.write(chunk)
+                    player_process.stdin.flush()
+                    chunk_count += 1
+                    if chunk_count == 1:
+                        print("🔊 Reproduciendo (First Byte)...")
+                except BrokenPipeError:
+                    logger.warning("Reproductor cerrado prematuramente")
+                    break
                     
-                except Exception:
-                    # 3. Último recurso: convertir con FFmpeg
-                    try:
-                        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_mp3:
-                            tmp_mp3.write(audio_bytes)
-                            mp3_path = tmp_mp3.name
-                        
-                        wav_path = mp3_path.replace(".mp3", ".wav")
-                        
-                        # Conversión rápida con FFmpeg
-                        subprocess.run([
-                            "ffmpeg", "-y", "-i", mp3_path,
-                            "-ar", "16000", "-ac", "1", "-f", "wav", wav_path
-                        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-                        
-                        # Leer y reproducir el WAV convertido
-                        with wave.open(wav_path, 'rb') as f:
-                            data = f.readframes(f.getnframes())
-                            fs = f.getframerate()
-                            audio_np = np.frombuffer(data, dtype=np.int16)
-                            
-                        sd.play(audio_np, fs)
-                        sd.wait()
-                        
-                        # Limpieza
-                        os.unlink(mp3_path)
-                        os.unlink(wav_path)
-                        
-                    except Exception as e:
-                        logger.error(f"Error convirtiendo/reproduciendo audio: {e}")
-
-        # Ejecutar en thread pool
-        await self._loop.run_in_executor(None, _blocking_play)
+        except Exception as e:
+            logger.error(f"Error en playback stream: {e}")
+        finally:
+            # Cerrar stdin para indicar fin de stream al reproductor
+            if player_process.stdin:
+                player_process.stdin.close()
+            # Esperar a que termine de sonar el buffer
+            player_process.wait()
+            print("✅ Fin reproducción")
 
     # ... (Tu código de run_demo_mode se mantiene igual) ...
 

@@ -118,7 +118,19 @@ ASISTENTE:"""
                             break
                         
                         # Verificar si es una llamada a función
-                        part = chunk.candidates[0].content.parts[0]
+                        if not chunk.candidates:
+                            continue
+                            
+                        candidate = chunk.candidates[0]
+                        # Verificar si fue bloqueado por seguridad
+                        if candidate.finish_reason != 0 and candidate.finish_reason != 1: # 0=Unspecified, 1=Stop
+                             print(f"⚠️ Chunk bloqueado/finalizado: {candidate.finish_reason}")
+                             continue
+
+                        if not candidate.content or not candidate.content.parts:
+                            continue
+
+                        part = candidate.content.parts[0]
                         
                         if part.function_call:
                             fc = part.function_call

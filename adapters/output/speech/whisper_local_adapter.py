@@ -99,9 +99,10 @@ class WhisperLocalAdapter(STTPort):
         segments, info = self._model.transcribe(
             audio_array,
             language=self.language,
-            beam_size=5,
+            beam_size=1,
+            best_of=1,          # <--- Solo busca el mejor candidato
             vad_filter=True,  # VAD interno ayuda a filtrar ruido extra
-            vad_parameters=dict(min_silence_duration_ms=750)
+            vad_parameters=dict(min_silence_duration_ms=500)
         )
         
         # Faster-whisper devuelve un generador, hay que consumirlo
@@ -162,8 +163,9 @@ class WhisperLocalAdapter(STTPort):
                     
                     bytes_since_last_update = 0
             
-            # Transcripción final al cerrar el stream
-            if buffer:
+            # Transcripción final SOLO si hay datos nuevos pendientes
+            # CORRECCIÓN: Evita que se ejecute dos veces si el chunk final activó el umbral arriba
+            if buffer and bytes_since_last_update > 0:
                 final_response = await self.transcribe(bytes(buffer))
                 if final_response.text != last_text:
                     yield final_response.text

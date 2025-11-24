@@ -126,13 +126,22 @@ class AssistantService:
             quick_response_chunks.append(chunk)
         quick_response_text = "".join(quick_response_chunks)
         
-        # Heurística Omega-1
-        if len(quick_response_text.split()) <= 15:
+        # =================================================================
+        # CORRECCIÓN CRÍTICA: Validar que la respuesta NO esté vacía
+        # =================================================================
+        word_count = len(quick_response_text.split())
+        
+        # Heurística Omega-1 (Solo si hay contenido real y es breve)
+        if 0 < word_count <= 25:  # Aumentado a 25 palabras para ser más útil
             print(f"✅ Respuesta Omega-1 (Rápida): {quick_response_text}")
             return final_text, self._quick_tts_stream(quick_response_text)
             
         # 5. FALLBACK A OMEGA-2 (Cognitivo/Function Calling)
-        print("🧠 Fallback a Omega-2 (Function Calling)...")
+        # Si Omega-1 falló (vacío) o es muy largo, pasamos a Omega-2
+        if word_count == 0:
+            print("⚠️ Omega-1 devolvió vacío. Reintentando con Omega-2...")
+        else:
+            print("🧠 Respuesta larga o compleja. Escalando a Omega-2...")
         
         llm_command_full = GenerateLLMStreamCommand(
             user_message=final_text,

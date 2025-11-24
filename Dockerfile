@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2-dev \
     ffmpeg \
     libsndfile1 \
+    espeak-ng \
     git \
     && rm -rf /var/lib/apt/lists/*
 
