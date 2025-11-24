@@ -1,7 +1,9 @@
 import asyncio
 import time
 import os
-from typing import Optional
+import queue
+import threading
+from typing import Optional, AsyncGenerator, Iterator
 
 try:
     from elevenlabs.client import ElevenLabs
@@ -9,29 +11,14 @@ except ImportError:
     print("⚠️ elevenlabs no instalado. Usa: pip install elevenlabs")
     ElevenLabs = None
 
-from app.ports.output.tts_port import TTSPort, TTSRequest, TTSResponse
-from adapters.utils.resilience import CircuitBreaker, retry_async
+from app.ports.output.tts_port import TTSPort, TTSRequest
 
 
 class ElevenLabsAdapter(TTSPort):
     """
-    Adaptador para ElevenLabs TTS (Cloud, alta calidad).
+    Adaptador para ElevenLabs TTS con Streaming E2E.
     
-    Características:
-    - Voz natural de alta calidad
-    - Latencia: ~300-500ms
-    - Streaming: Puede empezar a reproducir antes de terminar
-    - Costo: ~$0.30 por 1000 caracteres
-    
-    Ventajas vs TTS Local:
-    - Calidad superior (suena humano)
-    - Rápido (más que pyttsx3)
-    - Soporte para múltiples voces/idiomas
-    
-    Trade-offs:
-    - Requiere internet
-    - Costos por uso
-    - Dependencia de servicio externo
+    Conecta el stream de texto del LLM directamente al stream de audio de ElevenLabs.
     """
     
     def __init__(self, api_key: Optional[str] = None, voice_id: str = "21m00Tcm4TlvDq8ikWAM"):
@@ -40,10 +27,7 @@ class ElevenLabsAdapter(TTSPort):
         
         Args:
             api_key: ElevenLabs API Key
-            voice_id: ID de la voz a usar (default: Rachel - femenina, natural)
-            
-        Raises:
-            ValueError: Si no se encuentra API key
+            voice_id: ID de la voz a usar
         """
         if ElevenLabs is None:
             raise ImportError("elevenlabs no está instalado")
@@ -52,106 +36,86 @@ class ElevenLabsAdapter(TTSPort):
         if not self.api_key:
             raise ValueError("ELEVENLABS_API_KEY no configurada")
         
-        # Inicializar cliente de ElevenLabs (nueva API)
+        # Inicializar cliente de ElevenLabs
         self.client = ElevenLabs(api_key=self.api_key)
         self.voice_id = voice_id
         
-        # Circuit Breaker
-        self.circuit_breaker = CircuitBreaker(
-            failure_threshold=3,
-            recovery_timeout_s=30
-        )
-        
-        print("✓ ElevenLabs Adapter inicializado")
+        print("✓ ElevenLabs Adapter inicializado (Streaming habilitado)")
     
-    @retry_async(max_retries=2, initial_delay_s=0.2)
-    async def synthesize(self, request: TTSRequest) -> TTSResponse:
+    async def synthesize_stream(self, text_stream: AsyncGenerator[str, None]) -> AsyncGenerator[bytes, None]:
         """
-        Sintetiza texto a audio con ElevenLabs.
+        Sintetiza un stream de texto a un stream de audio.
         
-        Args:
-            request: Solicitud con texto y configuración
-            
-        Returns:
-            Audio sintetizado
+        Nota: ElevenLabs requiere el texto completo, no soporta streaming de entrada.
+        Acumulamos todo el texto y luego generamos audio.
         """
-        if self.circuit_breaker.is_open():
-            raise RuntimeError("Circuit breaker abierto para ElevenLabs")
+        # Acumular todo el texto
+        full_text = ""
+        async for chunk in text_stream:
+            if chunk:
+                full_text += chunk
         
-        start_time = time.time()
-        
-        try:
-            # Limitar largo (ElevenLabs cobra por caracteres)
-            text = request.text[:1000] if len(request.text) > 1000 else request.text
+        if not full_text:
+            # No hay texto, terminar sin yield (no usar return)
+            pass
+        else:
+            # Generar audio con el texto completo
+            loop = asyncio.get_event_loop()
             
-            # Llamada con timeout de 5s (TTS puede tardar)
-            response = await asyncio.wait_for(
-                self._call_elevenlabs(text, request.speed),
-                timeout=5.0
-            )
+            def _generate_audio_stream():
+                try:
+                    return self.client.text_to_speech.convert(
+                        voice_id=self.voice_id,
+                        text=full_text,  # String completo, no generador
+                        model_id="eleven_multilingual_v2",
+                        output_format="pcm_16000",
+                        voice_settings={
+                            "stability": 0.5,
+                            "similarity_boost": 0.75,
+                        }
+                    )
+                except Exception as e:
+                    print(f"✗ Error ElevenLabs Stream: {e}")
+                    raise e
             
-            latency_ms = (time.time() - start_time) * 1000
+            # Obtener el generador de audio
+            audio_generator = await loop.run_in_executor(None, _generate_audio_stream)
             
-            self.circuit_breaker.record_success()
+            # Consumir y yield audio chunks
+            audio_iterator = iter(audio_generator)
             
-            # Estimar duración (aproximado: ~50ms por palabra)
-            word_count = len(request.text.split())
-            estimated_duration_ms = word_count * 50
+            def safe_next():
+                """Wrapper para evitar que StopIteration escape a asyncio"""
+                try:
+                    return next(audio_iterator)
+                except StopIteration:
+                    return None
             
-            return TTSResponse(
-                audio_bytes=response,
-                duration_ms=estimated_duration_ms,
-                latency_ms=latency_ms
-            )
-            
-        except asyncio.TimeoutError:
-            print(f"✗ Timeout ElevenLabs (>5s)")
-            self.circuit_breaker.record_failure()
-            raise
-            
-        except Exception as e:
-            print(f"✗ Error ElevenLabs: {e}")
-            self.circuit_breaker.record_failure()
-            raise
-    
-    async def _call_elevenlabs(self, text: str, speed: float) -> bytes:
-        """
-        Llamada a ElevenLabs (ejecutada en executor).
-        
-        Args:
-            text: Texto a sintetizar
-            speed: Velocidad (1.0 = normal)
-            
-        Returns:
-            Audio bytes
-        """
-        loop = asyncio.get_event_loop()
-        
-        def _generate():
-            # Usar la API v2.x de ElevenLabs
-            audio_generator = self.client.text_to_speech.convert(
-                voice_id=self.voice_id,
-                text=text,
-                model_id="eleven_multilingual_v2",
-                voice_settings={
-                    "stability": 0.5,
-                    "similarity_boost": 0.75,
-                    "speed": speed
-                }
-            )
-            
-            # Convertir el generador a bytes
-            audio_bytes = b"".join(audio_generator)
-            return audio_bytes
-        
-        return await loop.run_in_executor(None, _generate)
-    
+            while True:
+                try:
+                    chunk = await loop.run_in_executor(None, safe_next)
+                    
+                    if chunk is None:
+                        break
+                        
+                    yield chunk
+                    
+                except Exception as e:
+                    print(f"⚠️ Error en chunk de audio: {e}")
+                    raise e
+
     async def health_check(self) -> bool:
         """Verifica disponibilidad de ElevenLabs"""
         try:
-            await asyncio.wait_for(
-                self.synthesize(TTSRequest(text="test")),
-                timeout=3.0
+            # Prueba simple no-streaming
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                None, 
+                lambda: self.client.text_to_speech.convert(
+                    voice_id=self.voice_id,
+                    text="test",
+                    model_id="eleven_multilingual_v2"
+                )
             )
             return True
         except:

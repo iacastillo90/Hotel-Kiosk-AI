@@ -7,9 +7,9 @@ from app.ports.output.tts_port import TTSPort
 from app.ports.output.tts_port import TTSPort
 from app.ports.output.knowledge_base_port import KnowledgeBasePort
 from app.ports.output.repository_port import RepositoryPort
+from app.ports.output.affect_port import AffectPort
 from app.ports.input.audio_input_port import AudioInputPort
 from app.domain.services.assistant_service import AssistantService
-
 
 class DIContainer:
     """
@@ -43,7 +43,15 @@ class DIContainer:
         self._kb_port: Optional[KnowledgeBasePort] = None
         self._repository_port: Optional[RepositoryPort] = None
         self._audio_input_port: Optional[AudioInputPort] = None
+        self._affect_port: Optional[AffectPort] = None
         self._assistant_service: Optional[AssistantService] = None
+    
+    def get_affect_port(self) -> AffectPort:
+        """Factory para AffectPort (singleton)"""
+        if self._affect_port is None:
+            from adapters.output.affect.acoustic_adapter import AcousticAdapter
+            self._affect_port = AcousticAdapter()
+        return self._affect_port
     
     def get_llm_port(self) -> LLMPort:
         """
@@ -161,18 +169,78 @@ class DIContainer:
         
         return self._audio_input_port
     
+    def get_llm_chain(self) -> list[LLMPort]:
+        """Devuelve cadena de LLMs (Primario -> Fallback)"""
+        chain = []
+        
+        # 1. Primario (según config)
+        chain.append(self.get_llm_port())
+        
+        # 2. Fallback: OpenAI (si el primario es Gemini y tenemos key)
+        if self.settings.llm_provider == "gemini" and self.settings.openai_api_key:
+            try:
+                from adapters.output.llm.openai_adapter import OpenAIAdapter
+                chain.append(OpenAIAdapter(self.settings.openai_api_key))
+            except Exception as e:
+                print(f"⚠️ No se pudo cargar OpenAI fallback: {e}")
+                
+        # 3. Fallback: Gemini (si el primario es OpenAI y tenemos key)
+        elif self.settings.llm_provider == "openai" and self.settings.google_api_key:
+            try:
+                from adapters.output.llm.gemini_adapter import GeminiAdapter
+                chain.append(GeminiAdapter(self.settings.google_api_key))
+            except Exception as e:
+                print(f"⚠️ No se pudo cargar Gemini fallback: {e}")
+                
+        return chain
+
+    def get_tts_chain(self) -> list[TTSPort]:
+        """Devuelve cadena de TTS (Primario -> Fallback)"""
+        chain = []
+        
+        # 1. Primario
+        chain.append(self.get_tts_port())
+        
+        # 2. Fallback (Pyttsx3) - Si el primario no es ya pyttsx3
+        # Importamos Pyttsx3FallbackAdapter para verificar tipo
+        from adapters.output.speech.pyttsx3_fallback_adapter import Pyttsx3FallbackAdapter
+        
+        if not isinstance(chain[0], Pyttsx3FallbackAdapter):
+             chain.append(Pyttsx3FallbackAdapter())
+             
+        return chain
+
+    def get_prompt_factory(self) -> 'PromptFactory':
+        """Factory para PromptFactory (singleton)"""
+        from app.domain.services.prompt_factory import PromptFactory
+        if not hasattr(self, '_prompt_factory') or self._prompt_factory is None:
+            self._prompt_factory = PromptFactory()
+        return self._prompt_factory
+
+    def get_command_bus(self) -> 'CommandBus':
+        """Factory para CommandBus (singleton)"""
+        # Importación local para evitar ciclos
+        from app.domain.services.command_bus import CommandBus
+        
+        if not hasattr(self, '_command_bus') or self._command_bus is None:
+            self._command_bus = CommandBus(
+                llm_chain=self.get_llm_chain(),
+                tts_chain=self.get_tts_chain(),
+                kb_port=self.get_kb_port(),
+                repository_port=self.get_repository_port(),
+                prompt_factory=self.get_prompt_factory()
+            )
+        return self._command_bus
+
     def get_assistant_service(self) -> AssistantService:
         """
         Factory para AssistantService (singleton).
         """
-        # CORRECCIÓN: Aseguramos que sea Singleton
         if self._assistant_service is None:
             self._assistant_service = AssistantService(
-                llm_port=self.get_llm_port(),
                 stt_port=self.get_stt_port(),
-                tts_port=self.get_tts_port(),
-                kb_port=self.get_kb_port(),
-                repository_port=self.get_repository_port()
+                affect_port=self.get_affect_port(),
+                command_bus=self.get_command_bus()
             )
         
         return self._assistant_service

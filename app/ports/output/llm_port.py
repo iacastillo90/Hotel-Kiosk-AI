@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, AsyncGenerator
 from dataclasses import dataclass
 
 
@@ -9,18 +9,19 @@ class LLMRequest:
     user_message: str
     conversation_history: str
     hotel_context: Optional[str] = None
+    emotional_state: str = "Neutral"
+    kb_confidence: float = 1.0
+    system_latency_ms: int = 0
+    system_prompt: Optional[str] = None
+    tools: Optional[list] = None
     language: str = "es"
     max_tokens: int = 512
 
-
 @dataclass
 class LLMResponse:
-    """Response structure del LLM"""
+    """Response structure from LLM"""
     text: str
-    model: str
-    tokens_used: int
-    latency_ms: float
-
+    confidence: float = 1.0
 
 class LLMPort(ABC):
     """
@@ -29,15 +30,15 @@ class LLMPort(ABC):
     """
     
     @abstractmethod
-    async def generate(self, request: LLMRequest) -> LLMResponse:
+    async def generate_stream(self, request: LLMRequest) -> AsyncGenerator[str, None]:
         """
-        Genera una respuesta basada en el prompt.
+        Genera una respuesta en streaming (chunk a chunk).
         
         Args:
             request: Solicitud con contexto y mensaje del usuario
             
-        Returns:
-            Respuesta del LLM con texto y metadatos
+        Yields:
+            Chunk de texto de la respuesta
         """
         pass
     

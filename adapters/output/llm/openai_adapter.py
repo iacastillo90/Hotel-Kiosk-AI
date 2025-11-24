@@ -1,12 +1,11 @@
 import os
 import time
 import asyncio
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
 from openai import AsyncOpenAI
 
 from app.ports.output.llm_port import LLMPort, LLMRequest, LLMResponse
-from adapters.utils.resilience import CircuitBreaker, retry_async
 
 
 class OpenAIAdapter(LLMPort):
@@ -33,67 +32,67 @@ class OpenAIAdapter(LLMPort):
         
         self.client = AsyncOpenAI(api_key=self.api_key)
         
-        # Circuit Breaker
-        self.circuit_breaker = CircuitBreaker(
-            failure_threshold=3,
-            recovery_timeout_s=30
-        )
-        
-        print("✓ OpenAI Adapter inicializado")
+        print("✓ OpenAI Adapter inicializado (Puro - Sin CircuitBreaker)")
     
-    @retry_async(max_retries=2, initial_delay_s=0.3)
-    async def generate(self, request: LLMRequest) -> LLMResponse:
+    async def generate_stream(self, request: LLMRequest) -> AsyncGenerator[str, None]:
         """
-        Genera respuesta con OpenAI GPT-4o-mini.
+        Genera respuesta en streaming con OpenAI GPT-4o-mini.
         
         Args:
             request: Solicitud con contexto
             
-        Returns:
-            Respuesta del LLM
+        Yields:
+            Chunks de texto
         """
-        if self.circuit_breaker.is_open():
-            raise RuntimeError("Circuit breaker abierto para OpenAI")
-        
-        start_time = time.time()
-        
-        system_prompt = """Eres un Concierge Virtual de hotel.
+        # Construir prompt (Dinámico o Default)
+        if request.system_prompt:
+            system_prompt = request.system_prompt
+        else:
+            system_prompt = """Eres un Concierge Virtual de hotel.
 Sé amable, conciso y profesional.
 Responde en español.
 Máximo 2-3 oraciones."""
         
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
+        
+        # Agregar contexto del hotel si existe
+        if request.hotel_context:
+            messages.append({
+                "role": "system", 
+                "content": f"CONTEXTO DEL HOTEL:\n{request.hotel_context}"
+            })
+        
+        # Agregar historial si existe
+        if request.conversation_history:
+            messages.append({
+                "role": "system",
+                "content": f"HISTORIAL:\n{request.conversation_history}"
+            })
+        
+        # Mensaje del usuario
+        messages.append({
+            "role": "user",
+            "content": request.user_message
+        })
+        
         try:
-            response = await asyncio.wait_for(
-                self.client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": f"{request.hotel_context}\n\n{request.user_message}"}
-                    ],
-                    max_tokens=request.max_tokens,
-                    temperature=0.7,
-                ),
-                timeout=3.0
-            )
-            
-            latency_ms = (time.time() - start_time) * 1000
-            
-            self.circuit_breaker.record_success()
-            
-            return LLMResponse(
-                text=response.choices[0].message.content,
+            stream = await self.client.chat.completions.create(
                 model="gpt-4o-mini",
-                tokens_used=response.usage.total_tokens,
-                latency_ms=latency_ms
+                messages=messages,
+                max_tokens=request.max_tokens,
+                temperature=0.7,
+                stream=True
             )
             
-        except asyncio.TimeoutError:
-            self.circuit_breaker.record_failure()
-            raise
-            
+            async for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+                    
         except Exception as e:
-            self.circuit_breaker.record_failure()
-            raise
+            print(f"🔥 Error Crítico OpenAI: {e}")
+            raise e
     
     async def health_check(self) -> bool:
         """Verifica disponibilidad de OpenAI"""

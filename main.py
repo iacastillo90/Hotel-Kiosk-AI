@@ -4,7 +4,7 @@ import sys
 import uuid
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
 # Configurar path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -13,8 +13,22 @@ from dotenv import load_dotenv
 import numpy as np
 
 # Configuración de Logging Estructurado
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger("HotelKiosk")
+
+print(r"""
+  _    _       _       _   _  ___           _      
+ | |  | |     | |     | | | |/ (_)         | |     
+ | |__| | ___ | |_ ___| | | ' / _  ___  ___| | __  
+ |  __  |/ _ \| __/ _ \ | |  < | |/ _ \/ __| |/ /  
+ | |  | | (_) | ||  __/ | | . \| | (_) \__ \   <   
+ |_|  |_|\___/ \__\___|_| |_|\_\_|\___/|___/_|\_\  
+                                                   
+      🚀 SYSTEM STATUS: GOD MODE (OPTIMIZED)       
+""")
 
 try:
     import sounddevice as sd
@@ -94,8 +108,11 @@ class HotelKioskApp:
                     
                     try:
                         # 3. Pipeline IA (STT -> Intent -> LLM -> TTS)
-                        # Al ser async, no bloquea el loop
-                        text_resp, audio_resp = await assistant.process_audio(captured_audio)
+                        # Convertir bytes a async generator
+                        async def audio_generator():
+                            yield captured_audio
+                        
+                        text_resp, audio_resp = await assistant.process_audio(audio_generator())
                         
                         print(f"\n🤖: {text_resp}")
                         
@@ -120,11 +137,25 @@ class HotelKioskApp:
             audio_input.stop_listening()
             self.is_running = False
 
-    async def _play_audio(self, audio_bytes: bytes) -> None:
+    async def _play_audio(self, audio_stream: AsyncGenerator[bytes, None]) -> None:
         """
-        Reproduce audio (WAV o MP3) en thread separado sin bloquear.
+        Reproduce audio en streaming desde un async generator.
+        Compatible con audio RAW PCM 16kHz (ElevenLabs) o acumulado (Pyttsx3).
         """
-        if sd is None or not audio_bytes: return
+        if sd is None:
+            return
+        
+        # Acumular todo el audio del stream
+        audio_chunks = []
+        async for chunk in audio_stream:
+            if chunk:
+                audio_chunks.append(chunk)
+        
+        if not audio_chunks:
+            return
+        
+        # Concatenar todos los chunks
+        audio_bytes = b''.join(audio_chunks)
 
         def _blocking_play():
             import io
@@ -143,39 +174,43 @@ class HotelKioskApp:
                 sd.wait()
 
             except wave.Error:
-                # 2. Si falla, asumimos MP3 (ElevenLabs) y convertimos
-                # Esto sigue ocurriendo en el thread secundario, así que es seguro usar subprocess
+                # 2. Si falla, asumimos MP3 (ElevenLabs) o PCM raw
                 try:
-                    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_mp3:
-                        tmp_mp3.write(audio_bytes)
-                        mp3_path = tmp_mp3.name
-                    
-                    wav_path = mp3_path.replace(".mp3", ".wav")
-                    
-                    # Conversión rápida con FFmpeg
-                    subprocess.run([
-                        "ffmpeg", "-y", "-i", mp3_path,
-                        "-ar", "16000", "-ac", "1", "-f", "wav", wav_path
-                    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-                    
-                    # Leer y reproducir el WAV convertido
-                    with wave.open(wav_path, 'rb') as f:
-                        data = f.readframes(f.getnframes())
-                        fs = f.getframerate()
-                        audio_np = np.frombuffer(data, dtype=np.int16)
-                        
-                    sd.play(audio_np, fs)
+                    # Intentar como PCM raw 16kHz mono
+                    audio_np = np.frombuffer(audio_bytes, dtype=np.int16)
+                    sd.play(audio_np, 16000)
                     sd.wait()
                     
-                    # Limpieza
-                    os.unlink(mp3_path)
-                    os.unlink(wav_path)
-                    
-                except Exception as e:
-                    logger.error(f"Error convirtiendo/reproduciendo MP3: {e}")
-
-            except Exception as e:
-                logger.error(f"Error general audio: {e}")
+                except Exception:
+                    # 3. Último recurso: convertir con FFmpeg
+                    try:
+                        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tmp_mp3:
+                            tmp_mp3.write(audio_bytes)
+                            mp3_path = tmp_mp3.name
+                        
+                        wav_path = mp3_path.replace(".mp3", ".wav")
+                        
+                        # Conversión rápida con FFmpeg
+                        subprocess.run([
+                            "ffmpeg", "-y", "-i", mp3_path,
+                            "-ar", "16000", "-ac", "1", "-f", "wav", wav_path
+                        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                        
+                        # Leer y reproducir el WAV convertido
+                        with wave.open(wav_path, 'rb') as f:
+                            data = f.readframes(f.getnframes())
+                            fs = f.getframerate()
+                            audio_np = np.frombuffer(data, dtype=np.int16)
+                            
+                        sd.play(audio_np, fs)
+                        sd.wait()
+                        
+                        # Limpieza
+                        os.unlink(mp3_path)
+                        os.unlink(wav_path)
+                        
+                    except Exception as e:
+                        logger.error(f"Error convirtiendo/reproduciendo audio: {e}")
 
         # Ejecutar en thread pool
         await self._loop.run_in_executor(None, _blocking_play)

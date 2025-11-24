@@ -3,7 +3,7 @@ import time
 import numpy as np
 import io
 import logging
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
 # Usamos faster_whisper en lugar de whisper estándar
 try:
@@ -101,7 +101,7 @@ class WhisperLocalAdapter(STTPort):
             language=self.language,
             beam_size=5,
             vad_filter=True,  # VAD interno ayuda a filtrar ruido extra
-            vad_parameters=dict(min_silence_duration_ms=500)
+            vad_parameters=dict(min_silence_duration_ms=750)
         )
         
         # Faster-whisper devuelve un generador, hay que consumirlo
@@ -121,3 +121,53 @@ class WhisperLocalAdapter(STTPort):
 
     def set_language(self, language: str) -> None:
         self.language = language
+
+    async def transcribe_stream(self, audio_stream: AsyncGenerator[bytes, None]) -> AsyncGenerator[str, None]:
+        """
+        Implementación de transcripción incremental (Growing Buffer).
+        Acumula audio y re-transcribe periódicamente para dar feedback rápido.
+        
+        OPTIMIZACIÓN: Umbral aumentado a 2.0s para reducir costo O(N²) de re-transcripción.
+        """
+        buffer = bytearray()
+        last_text = ""
+        
+        # Intervalo de actualización (cada ~2.0s de audio nuevo)
+        # 16000 Hz * 2 bytes * 2.0s = 64000 bytes
+        # OPTIMIZADO: Aumentado de 16000 a 64000 para reducir latencia O(N²)
+        update_threshold = 64000  # Antes: 16000 (~0.5s)
+        bytes_since_last_update = 0
+        
+        try:
+            async for chunk in audio_stream:
+                if not chunk: continue
+                
+                buffer.extend(chunk)
+                bytes_since_last_update += len(chunk)
+                
+                # Si acumulamos suficiente audio nuevo, transcribimos
+                if bytes_since_last_update >= update_threshold:
+                    # Transcribir buffer actual (copia para no bloquear)
+                    current_audio = bytes(buffer)
+                    
+                    # Llamada rápida a transcribe (reutilizamos lógica)
+                    response = await self.transcribe(current_audio)
+                    
+                    current_text = response.text.strip()
+                    
+                    # Si el texto cambió significativamente (es más largo), emitimos
+                    if len(current_text) > len(last_text):
+                        yield current_text
+                        last_text = current_text
+                    
+                    bytes_since_last_update = 0
+            
+            # Transcripción final al cerrar el stream
+            if buffer:
+                final_response = await self.transcribe(bytes(buffer))
+                if final_response.text != last_text:
+                    yield final_response.text
+                    
+        except Exception as e:
+            logger.error(f"Error en transcribe_stream: {e}")
+            yield ""

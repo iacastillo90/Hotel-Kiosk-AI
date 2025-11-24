@@ -1,26 +1,18 @@
 import os
 import time
 import asyncio
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
 import google.generativeai as genai
 
-from app.ports.output.llm_port import LLMPort, LLMRequest, LLMResponse
-from adapters.utils.resilience import CircuitBreaker, retry_async
+from app.ports.output.llm_port import LLMPort, LLMRequest
 
 
 class GeminiAdapter(LLMPort):
     """
-    Adaptador para Google Gemini 2.5 Flash.
+    Adaptador para Google Gemini 2.5 Flash con Streaming.
     
     Implementa el contrato LLMPort usando la API de Google Generative AI.
-    Incluye protección con Circuit Breaker y Retry Logic para red 4G inestable.
-    
-    Características:
-    - Circuit Breaker: Protege contra cascadas de fallos
-    - Retry con backoff exponencial: 3 intentos con delays crecientes
-    - Timeout agresivo: 3 segundos (crítico para 4G)
-    - Prompt engineering: Sistema optimizado para concierge
     """
     
     def __init__(self, api_key: Optional[str] = None):
@@ -29,9 +21,6 @@ class GeminiAdapter(LLMPort):
         
         Args:
             api_key: Google API Key (opcional, usa env var si no se provee)
-            
-        Raises:
-            ValueError: Si no se encuentra API key
         """
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
@@ -43,54 +32,23 @@ class GeminiAdapter(LLMPort):
         # Modelo: gemini-2.5-flash (rápido y disponible)
         self.model = genai.GenerativeModel('gemini-2.5-flash')
         
-        # Circuit Breaker: 3 fallos → abre, 30s timeout
-        self.circuit_breaker = CircuitBreaker(
-            failure_threshold=3,
-            recovery_timeout_s=30
-        )
-        
-        print("✓ Gemini Adapter inicializado")
+        print("✓ Gemini Adapter inicializado (Puro - Sin CircuitBreaker)")
+        print("✓ Gemini Adapter inicializado (Streaming habilitado)")
     
-    @retry_async(max_retries=2, initial_delay_s=0.3)
-    async def generate(self, request: LLMRequest) -> LLMResponse:
+    async def generate_stream(self, request: LLMRequest) -> AsyncGenerator[str, None]:
         """
-        Genera una respuesta usando Gemini.
+        Genera una respuesta en streaming usando Gemini (Soporta Function Calling).
         
-        Implementación con:
-        - Circuit Breaker para fail-fast
-        - Retry automático (3 intentos)
-        - Timeout de 3 segundos
-        
-        Args:
-            request: Solicitud con contexto y mensaje del usuario
-            
-        Returns:
-            Respuesta del LLM con texto y metadatos
-            
-        Raises:
-            RuntimeError: Si circuit breaker está abierto
-            asyncio.TimeoutError: Si excede 3 segundos
-            Exception: Para otros errores de API
+        Yields:
+            Chunks de texto O JSON de llamada a función (prefijado con __FUNCTION_CALL__:)
         """
-        # Verificar circuit breaker
-        if self.circuit_breaker.is_open():
-            raise RuntimeError("Circuit breaker abierto para Gemini. Esperando recuperación...")
+        # Construir prompt (Dinámico o Default)
+        if request.system_prompt:
+             system_prompt = request.system_prompt
+        else:
+             # Fallback por si acaso (aunque PromptFactory debería proveerlo)
+             system_prompt = "Eres un asistente útil."
         
-        start_time = time.time()
-        
-        # ======================================================================
-        # Construir prompt con ingeniería de prompts
-        # ======================================================================
-        system_prompt = """Eres un Concierge Virtual de hotel.
-
-Reglas:
-- Sé amable, conciso y profesional
-- Responde siempre en español
-- Si se te pregunta algo fuera del contexto del hotel, amablemente redirige la conversación
-- Máximo 2-3 oraciones por respuesta (conciso para audio)
-- Si no tienes información, admítelo y sugiere contactar recepción"""
-        
-        # Contexto completo
         full_prompt = f"""{system_prompt}
 
 CONTEXTO DEL HOTEL:
@@ -104,123 +62,102 @@ USUARIO: {request.user_message}
 ASISTENTE:"""
         
         try:
-            # ==================================================================
-            # Llamada a Gemini con TIMEOUT de 5 segundos
-            # ==================================================================
-            # Aumentado de 3s a 5s para mayor estabilidad
-            response = await asyncio.wait_for(
-                self._call_gemini(full_prompt, request.max_tokens),
-                timeout=5.0
+            # Configuración de seguridad
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+            ]
+            
+            # Configurar herramientas si existen
+            tools_config = request.tools if request.tools else None
+            
+            generation_config = genai.types.GenerationConfig(
+                max_output_tokens=request.max_tokens,
+                temperature=0.7,
+                top_p=0.9,
+                top_k=40,
             )
             
-            latency_ms = (time.time() - start_time) * 1000
+            # Llamada de streaming
+            loop = asyncio.get_event_loop()
             
-            # Registrar éxito en circuit breaker
-            self.circuit_breaker.record_success()
             
-            return LLMResponse(
-                text=response.strip(),
-                model="gemini-2.5-flash",
-                tokens_used=0,  # Gemini no expone tokens directamente en la respuesta
-                latency_ms=latency_ms
-            )
+            def _call_gemini_stream():
+                """Wrapper que previene StopIteration de escapar"""
+                try:
+                    return self.model.generate_content(
+                        full_prompt,
+                        generation_config=generation_config,
+                        safety_settings=safety_settings,
+                        stream=True,
+                        tools=tools_config
+                    )
+                except StopIteration:
+                    # Esto NO debería pasar, pero si pasa, retornar generador vacío
+                    return iter([])
+
+            response_stream = await loop.run_in_executor(None, _call_gemini_stream)
             
-        except asyncio.TimeoutError:
-            # Timeout: red lenta o API sobrecargada
-            print(f"✗ Timeout en Gemini (>5s)")
-            self.circuit_breaker.record_failure()
-            raise
+            iterator = iter(response_stream)
+            
+            def safe_next():
+                """Wrapper para evitar que StopIteration escape a asyncio"""
+                try:
+                    return next(iterator)
+                except StopIteration:
+                    return None
+            
+            try:
+                while True:
+                    try:
+                        # Obtener siguiente chunk en thread
+                        chunk = await loop.run_in_executor(None, safe_next)
+                        if chunk is None:
+                            break
+                        
+                        # Verificar si es una llamada a función
+                        part = chunk.candidates[0].content.parts[0]
+                        
+                        if part.function_call:
+                            fc = part.function_call
+                            import json
+                            fc_data = {
+                                "name": fc.name,
+                                "args": dict(fc.args)
+                            }
+                            yield f"__FUNCTION_CALL__:{json.dumps(fc_data)}"
+                        else:
+                            if part.text:
+                                yield part.text
+                                
+                    except Exception as e:
+                        print(f"⚠️ Error en chunk de Gemini: {e}")
+                        raise e # Re-raise para que el Bus lo capture
+                        
+            except asyncio.CancelledError:
+                # Manejar cancelación limpiamente sin StopIteration
+                print("⚠️ Gemini stream cancelado")
+                raise
+            except StopIteration:
+                # Esto NO debería pasar, pero si pasa, terminar limpiamente
+                print("⚠️ StopIteration capturado en Gemini generate_stream")
+                pass
             
         except Exception as e:
-            # Otro error (API key inválida, rate limit, etc)
-            print(f"✗ Error Gemini: {e}")
-            self.circuit_breaker.record_failure()
-            raise
-    
-    async def _call_gemini(self, prompt: str, max_tokens: int) -> str:
-        """
-        Llamada real a Gemini en executor (para no bloquear event loop).
-        
-        La API de Gemini es síncrona, por lo que la ejecutamos en un
-        thread separado usando run_in_executor.
-        
-        Args:
-            prompt: Prompt completo construido
-            max_tokens: Máximo de tokens a generar
-            
-        Returns:
-            Texto generado por Gemini
-        """
-        loop = asyncio.get_event_loop()
-        
-        # Configuración de seguridad permisiva para evitar bloqueos falsos
-        safety_settings = [
-            {
-                "category": "HARM_CATEGORY_HARASSMENT",
-                "threshold": "BLOCK_NONE"
-            },
-            {
-                "category": "HARM_CATEGORY_HATE_SPEECH",
-                "threshold": "BLOCK_NONE"
-            },
-            {
-                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                "threshold": "BLOCK_NONE"
-            },
-            {
-                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-                "threshold": "BLOCK_NONE"
-            }
-        ]
-        
-        def _generate_safe():
-            try:
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        max_output_tokens=max_tokens,
-                        temperature=0.7,
-                        top_p=0.9,
-                        top_k=40,
-                    ),
-                    safety_settings=safety_settings
-                )
-                
-                # Intentar acceder al texto
-                try:
-                    return response.text
-                except ValueError:
-                    # Si falla, inspeccionar por qué
-                    if response.candidates:
-                        finish_reason = response.candidates[0].finish_reason
-                        print(f"⚠️ Gemini Finish Reason: {finish_reason}")
-                        # Si es SAFETY (3), devolver mensaje amigable
-                        if finish_reason == 3:
-                            return "Lo siento, no puedo responder a eso por motivos de seguridad."
-                        # Si es MAX_TOKENS (2) y no hay texto, devolver error
-                        return f"Error generando respuesta (Reason: {finish_reason})"
-                    return "Error: Respuesta vacía de Gemini"
-                    
-            except Exception as e:
-                print(f"✗ Error interno Gemini: {e}")
-                raise
-        
-        return await loop.run_in_executor(None, _generate_safe)
-    
+            print(f"🔥 Error Crítico Gemini: {e}")
+            raise e # Re-raise para activar Fallover en el Bus
+
     async def health_check(self) -> bool:
-        """
-        Verifica disponibilidad de Gemini.
-        
-        Envía un prompt trivial para confirmar conectividad.
-        
-        Returns:
-            True si el servicio está disponible
-        """
+        """Verifica disponibilidad de Gemini."""
         try:
-            response = await asyncio.wait_for(
-                self._call_gemini("Responde solo 'ok'", 10),
-                timeout=2.0
+            # Prueba simple síncrona en executor
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: self.model.generate_content("ok")
             )
-            return response.strip().lower() == "ok"
+            return response.text is not None
         except:
             return False

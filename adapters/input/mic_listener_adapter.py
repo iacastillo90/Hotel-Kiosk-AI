@@ -29,7 +29,7 @@ class MicListenerAdapter(AudioInputPort):
     
     def __init__(self,
                  sample_rate: int = 16000,
-                 silence_timeout_ms: float = 1500.0):
+                 silence_timeout_ms: float = 750.0):
         """
         Constructor.
         

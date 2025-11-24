@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, AsyncGenerator
 
 
 @dataclass
 class TTSRequest:
-    """Request para Text-to-Speech"""
+    """Request para Text-to-Speech (Legacy)"""
     text: str
     language: str = "es"
     voice_id: Optional[str] = None
@@ -14,7 +14,7 @@ class TTSRequest:
 
 @dataclass
 class TTSResponse:
-    """Response del TTS"""
+    """Response del TTS (Legacy)"""
     audio_bytes: bytes
     duration_ms: float
     latency_ms: float
@@ -27,15 +27,15 @@ class TTSPort(ABC):
     """
     
     @abstractmethod
-    async def synthesize(self, request: TTSRequest) -> TTSResponse:
+    async def synthesize_stream(self, text_stream: AsyncGenerator[str, None]) -> AsyncGenerator[bytes, None]:
         """
-        Sintetiza texto a audio.
+        Sintetiza un stream de texto a un stream de audio.
         
         Args:
-            request: Solicitud con texto y configuración
+            text_stream: Generador asíncrono de chunks de texto desde el LLM
             
-        Returns:
-            Audio sintetizado con metadatos
+        Yields:
+            Chunk de bytes de audio (para reproducción inmediata)
         """
         pass
     

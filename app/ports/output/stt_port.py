@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import AsyncGenerator
 from dataclasses import dataclass
 
 
@@ -37,5 +38,18 @@ class STTPort(ABC):
         
         Args:
             language: Código ISO-639-1 (ej: "es", "en")
+        """
+        pass
+
+    @abstractmethod
+    async def transcribe_stream(self, audio_stream: AsyncGenerator[bytes, None]) -> AsyncGenerator[str, None]:
+        """
+        Transcribe audio en tiempo real y devuelve la transcripción incremental.
+        
+        Args:
+            audio_stream: Generador asíncrono de chunks de audio.
+            
+        Yields:
+            Chunk de texto o transcripción parcial actualizada.
         """
         pass

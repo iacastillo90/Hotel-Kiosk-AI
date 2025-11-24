@@ -1,250 +1,312 @@
 import time
-from typing import Optional
+import json
+import asyncio
+from typing import Optional, AsyncGenerator, List, Dict, Any
 
-# Imports SOLO de domain y ports (Python puro, sin librerías externas)
-from app.domain.entities.conversation import Conversation
-from app.domain.entities.message import Message, MessageRole
-from app.ports.output.llm_port import LLMPort, LLMRequest
 from app.ports.output.stt_port import STTPort
-from app.ports.output.tts_port import TTSPort, TTSRequest
-from app.ports.output.knowledge_base_port import KnowledgeBasePort, KnowledgeBaseQuery
-from app.ports.output.repository_port import RepositoryPort
-from app.domain.services.intent_service import IntentService, Intent
-
+from app.ports.output.affect_port import AffectPort
+from app.domain.entities.conversation import Conversation, Message, MessageRole
+from app.domain.services.conversation_context import ConversationContext
+from app.domain.services.command_bus import CommandBus
+from app.domain.commands import (
+    GenerateLLMStreamCommand,
+    SearchKnowledgeQuery,
+    SynthesizeTTSCommand,
+    SaveBookingCommand,
+    LogInteractionCommand
+)
 
 class AssistantService:
     """
-    Orquestador principal del sistema CON ROUTING INTELIGENTE.
-    Implementa la lógica de negocio: Audio → Texto → Intent → Respuesta → Audio
-    
-    CORRECCIÓN CRÍTICA #3: Ahora usa IntentService para detectar intenciones
-    y enrutar a flujos especializados (reservas, check-in, etc).
-    
-    IMPORTANTE: Este servicio NO conoce detalles de implementación.
-    Solo trabaja con los contratos (Ports) y entidades (Domain).
+    Orquestador principal del sistema CON WAUOO OMEGA (Command Bus).
     """
     
     def __init__(self,
-                 llm_port: LLMPort,
                  stt_port: STTPort,
-                 tts_port: TTSPort,
-                 kb_port: KnowledgeBasePort,
-                 repository_port: RepositoryPort):
-        """
-        Constructor con inyección de dependencias.
+                 affect_port: AffectPort,
+                 command_bus: CommandBus): # Inyección del Command Bus
         
-        Args:
-            llm_port: Implementación del contrato LLM
-            stt_port: Implementación del contrato STT
-            tts_port: Implementación del contrato TTS
-            kb_port: Implementación del contrato Knowledge Base
-        """
-        self.llm_port = llm_port
         self.stt_port = stt_port
-        self.tts_port = tts_port
-        self.kb_port = kb_port
-        self.repository_port = repository_port
+        self.affect_port = affect_port
+        self.command_bus = command_bus
+        
+        # Estado y Contexto
         self.conversation: Optional[Conversation] = None
+        self.context: Optional[ConversationContext] = None
         
-        # NUEVO: Intent Service para routing inteligente
-        self.intent_service = IntentService()
+        # Definición de Herramientas (Function Calling)
+        self.tools = [
+            {
+                "function_declarations": [
+                    {
+                        "name": "make_booking",
+                        "description": "Realizar una reserva de restaurante o servicio.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "date": {"type": "string", "description": "Fecha (DD/MM)"},
+                                "time": {"type": "string", "description": "Hora (HH:MM)"},
+                                "people": {"type": "integer", "description": "Número de personas"}
+                            },
+                            "required": ["date", "time"]
+                        }
+                    },
+                    {
+                        "name": "check_in_info",
+                        "description": "Proveer información sobre check-in y horarios.",
+                        "parameters": {"type": "object", "properties": {}}
+                    },
+                    {
+                        "name": "contact_support",
+                        "description": "Proveer información de contacto o llamar a recepción.",
+                        "parameters": {"type": "object", "properties": {}}
+                    }
+                ]
+            }
+        ]
     
-    async def process_audio(self, audio_bytes: bytes) -> tuple[str, bytes]:
+    async def process_audio(self, audio_stream: AsyncGenerator[bytes, None]) -> tuple[str, AsyncGenerator[bytes, None]]:
         """
-        Flujo completo del sistema CON INTENT ROUTING:
-        1. STT: Audio → Texto
-        2. INTENT: Detecta intención del usuario
-        3. ROUTING: Según intent, elige flujo (info, reserva, check-in)
-        4. TTS: Texto → Audio
-        
-        Args:
-            audio_bytes: Audio capturado del micrófono
-            
-        Returns:
-            Tupla (texto_respuesta, audio_respuesta)
-            
-        Raises:
-            Exception: Si algún componente falla críticamente
+        Flujo Quantum Wauoo + Tiering Dinámico (Omega) + Command Bus.
         """
         start_time = time.time()
         
-        try:
-            # ===================================================================
-            # PASO 1: Transcribir audio a texto (STT)
-            # ===================================================================
-            stt_response = await self.stt_port.transcribe(audio_bytes)
-            user_text = stt_response.text
-            
-            if not user_text.strip():
-                # Audio vacío o ininteligible
-                fallback_text = "No entendí bien lo que dijiste. ¿Podrías repetir?"
-                return fallback_text, b""
-            
-            print(f"🎤 Usuario: {user_text}")
-            
-            # Añadir mensaje del usuario al historial
-            if self.conversation:
-                self.conversation.add_message(
-                    Message(user_text, MessageRole.USER)
-                )
-            
-            # ===================================================================
-            # PASO 2: DETECTAR INTENCIÓN (NUEVO)
-            # ===================================================================
-            intent_result = self.intent_service.detect_intent(user_text)
-            print(f"🎯 Intent detectado: {intent_result.intent.value} (confianza: {intent_result.confidence:.2f})")
-            
-            # ===================================================================
-            # PASO 3: ROUTING SEGÚN INTENT
-            # ===================================================================
-            if intent_result.intent == Intent.GREETING:
-                # Saludo: Respuesta rápida sin RAG
-                assistant_text = await self._handle_greeting(user_text)
-                
-            elif intent_result.intent == Intent.BOOKING:
-                # Reserva: Flujo especializado
-                assistant_text = await self._handle_booking(user_text, intent_result.entities)
-                
-            elif intent_result.intent == Intent.CHECK_IN:
-                # Check-in: Flujo especializado
-                assistant_text = await self._handle_checkin(user_text)
-                
-            elif intent_result.intent == Intent.CONTACT:
-                # Contacto: Respuesta directa sin LLM
-                assistant_text = await self._handle_contact(user_text)
-                
-            else:
-                # INFO o UNKNOWN: Flujo estándar (RAG + LLM)
-                assistant_text = await self._handle_info(user_text)
-            
-            # Añadir respuesta del asistente al historial
-            if self.conversation:
-                self.conversation.add_message(
-                    Message(assistant_text, MessageRole.ASSISTANT)
-                )
-            
-            # ===================================================================
-            # PASO 4: Sintetizar respuesta a audio (TTS)
-            # ===================================================================
-            tts_response = await self.tts_port.synthesize(
-                TTSRequest(text=assistant_text, language="es")
-            )
-            
-            # Calcular latencia total
-            elapsed_ms = (time.time() - start_time) * 1000
-            print(f"✓ Procesamiento completo: {elapsed_ms:.1f}ms")
-            
-            # 5. PERSISTENCIA (Async)
-            # Guardamos el log de la interacción sin bloquear
-            if self.repository_port:
-                await self.repository_port.log_interaction(
-                    user_text=user_text,
-                    intent=intent_result.intent.value,
-                    response=assistant_text
-                )
-            
-            return assistant_text, tts_response.audio_bytes
-            
-        except Exception as e:
-            print(f"✗ Error en process_audio: {e}")
-            raise
-    
-    # =========================================================================
-    # HANDLERS POR INTENT (Flujos Especializados)
-    # =========================================================================
-    
-    async def _handle_greeting(self, user_text: str) -> str:
-        """Maneja saludos sin necesidad de RAG/LLM"""
-        greetings = [
-            "¡Hola! Bienvenido a nuestro hotel. ¿En qué puedo ayudarte?",
-            "¡Buenos días! Soy tu asistente virtual. ¿Qué necesitas saber?",
-            "¡Hola! Estoy aquí para ayudarte con cualquier consulta sobre el hotel."
-        ]
-        import random
-        return random.choice(greetings)
-    
-    async def _handle_booking(self, user_text: str, entities: dict) -> str:
-        """Maneja reservas (ejemplo simplificado)"""
-        if entities.get("date") and entities.get("time"):
-            # Guardar reserva en BD
-            if self.repository_port:
-                await self.repository_port.save_booking({
-                    "name": "Usuario Voz", # En futuro extraer nombre real
-                    "date": f"{entities['date']} {entities['time']}"
-                })
-                
-            return (
-                f"Entendido, quieres reservar para el {entities['date']} a las {entities['time']}. "
-                f"¿Para cuántas personas?"
-            )
-        else:
-            return (
-                "Me gustaría ayudarte con la reserva. "
-                "¿Para qué fecha y hora necesitas?"
-            )
-    
-    async def _handle_checkin(self, user_text: str) -> str:
-        """Maneja check-in"""
-        return (
-            "Para realizar el check-in necesito tu número de reserva. "
-            "También puedes hacerlo directamente en recepción a partir de las 15:00."
-        )
-    
-    async def _handle_contact(self, user_text: str) -> str:
-        """Maneja consultas de contacto"""
-        return (
-            "Puedes contactarnos llamando al +34-XXX-XXXX o enviando un email a info@hotel.com. "
-            "Nuestra recepción está disponible 24/7."
-        )
-    
-    async def _handle_info(self, user_text: str) -> str:
-        """Flujo estándar: RAG + LLM para consultas de información"""
-        # Buscar contexto relevante (RAG)
-        kb_results = await self.kb_port.search(
-            KnowledgeBaseQuery(
-                query_text=user_text,
-                top_k=3,
-                min_score=0.5
-            )
-        )
+        # 1. Split Stream -> STT + Affect Analysis (Paralelo)
+        stt_queue = asyncio.Queue()
+        affect_queue = asyncio.Queue()
         
-        kb_context = "\n".join([r.content for r in kb_results])
+        # Lanzar distribuidor en background
+        asyncio.create_task(self._stream_distributor(audio_stream, stt_queue, affect_queue))
         
-        if kb_results:
-            print(f"📚 Contexto encontrado: {len(kb_results)} documentos")
+        # 2. Iniciar Tareas Paralelas
+        text_stream = self.stt_port.transcribe_stream(self._queue_gen(stt_queue))
+        affect_task = asyncio.create_task(self.affect_port.analyze_stream(self._queue_gen(affect_queue)))
         
-        # Generar respuesta con LLM
-        conversation_history = ""
+        # 3. Pipeline Proactivo (RAG via Command Bus)
+        final_text, kb_context = await self._proactive_pipeline(text_stream)
+        
+        # Esperar resultado afectivo
+        emotional_state = await affect_task
+        system_latency = int((time.time() - start_time) * 1000)
+        kb_confidence = 0.8 if kb_context else 0.0
+        
+        # Validaciones
+        if not final_text.strip():
+            fallback = "¿Hola? No te escuché."
+            return fallback, self._quick_tts_stream(fallback)
+            
+        print(f"🎤 Usuario (Final): {final_text}")
+        print(f"❤️ Estado: {emotional_state} | ⏱️ Latencia: {system_latency}ms")
+        
+        # Actualizar Historial
         if self.conversation:
-            conversation_history = self.conversation.get_recent_context(5)
-        
-        llm_request = LLMRequest(
-            user_message=user_text,
-            conversation_history=conversation_history,
-            hotel_context=kb_context,
-            language="es"
+            self.conversation.add_message(Message(final_text, MessageRole.USER))
+        if self.context:
+            self.context.last_activity = time.time()
+
+        # 4. TIERING DINÁMICO (LLM Omega-1: Rápido, sin Tools)
+        # Intentamos resolver con una llamada rápida (sin tools, sin historial pesado si se quisiera)
+        quick_llm_command = GenerateLLMStreamCommand(
+            user_message=final_text,
+            hotel_context=kb_context, 
+            emotional_state=emotional_state,
+            kb_confidence=kb_confidence,
+            system_latency_ms=system_latency,
+            tools=None, # OMEGA-1 NO USA TOOLS
+            conversation=self.conversation,
+            context=self.context
         )
         
-        llm_response = await self.llm_port.generate(llm_request)
+        # Ejecutar Comando LLM
+        llm_quick_stream = await self.command_bus.execute_command(quick_llm_command)
         
-        print(f"🤖 Asistente: {llm_response.text}")
+        # Consumimos el stream para evaluar la respuesta
+        quick_response_chunks = []
+        async for chunk in llm_quick_stream:
+            quick_response_chunks.append(chunk)
+        quick_response_text = "".join(quick_response_chunks)
         
-        return llm_response.text
-    
+        # Heurística Omega-1
+        if len(quick_response_text.split()) <= 15:
+            print(f"✅ Respuesta Omega-1 (Rápida): {quick_response_text}")
+            return final_text, self._quick_tts_stream(quick_response_text)
+            
+        # 5. FALLBACK A OMEGA-2 (Cognitivo/Function Calling)
+        print("🧠 Fallback a Omega-2 (Function Calling)...")
+        
+        llm_command_full = GenerateLLMStreamCommand(
+            user_message=final_text,
+            hotel_context=kb_context,
+            emotional_state=emotional_state,
+            kb_confidence=kb_confidence,
+            system_latency_ms=system_latency,
+            tools=self.tools, # Activamos las herramientas
+            conversation=self.conversation,
+            context=self.context
+        )
+        
+        llm_stream = await self.command_bus.execute_command(llm_command_full)
+        
+        # 6. Procesar Stream (Function Calling)
+        processed_text_stream = self._process_llm_stream(llm_stream, final_text)
+        
+        # 7. TTS Stream (Via Command Bus)
+        # Nota: synthesize_stream espera un generador, processed_text_stream lo es.
+        # Pero execute_command es awaitable.
+        tts_command = SynthesizeTTSCommand(text_stream=processed_text_stream)
+        audio_stream = await self.command_bus.execute_command(tts_command)
+        
+        return final_text, audio_stream
+
+    async def _stream_distributor(self, audio_stream, stt_queue, affect_queue):
+         """Distribuidor de chunks a colas para paralelismo"""
+         try:
+             async for chunk in audio_stream:
+                 await stt_queue.put(chunk)
+                 await affect_queue.put(chunk)
+             await stt_queue.put(None)
+             await affect_queue.put(None)
+         except Exception as e:
+             print(f"Error en stream distributor: {e}")
+             await stt_queue.put(None)
+             await affect_queue.put(None)
+
+    async def _queue_gen(self, q: asyncio.Queue) -> AsyncGenerator:
+        """Convierte cola en generador asíncrono"""
+        while True:
+            item = await q.get()
+            if item is None: break
+            yield item
+
+    async def _proactive_pipeline(self, text_stream: AsyncGenerator[str, None]) -> tuple[str, str]:
+        """
+        Consume el stream de texto, detecta intención temprana y lanza búsqueda RAG.
+        Devuelve el texto final y el contexto recuperado.
+        """
+        final_text = ""
+        rag_task = None
+        rag_triggered = False
+        
+        print("⚡ Iniciando Pipeline Proactivo...")
+        
+        async for text_chunk in text_stream:
+            final_text = text_chunk
+            
+            # Heurística simple: Si tenemos más de 4 palabras y no hemos lanzado RAG, hazlo.
+            words = final_text.split()
+            if len(words) >= 4 and not rag_triggered:
+                print(f"🚀 Trigger Proactivo RAG con: '{final_text}'")
+                rag_triggered = True
+                # Lanzar Query Bus en background
+                query = SearchKnowledgeQuery(query_text=final_text)
+                rag_task = asyncio.create_task(self.command_bus.execute_query(query))
+        
+        # Esperar resultado de RAG si se lanzó
+        kb_context = ""
+        if rag_task:
+            print("⏳ Esperando RAG (si no terminó ya)...")
+            kb_context = await rag_task
+            print("✓ Contexto RAG listo")
+        elif final_text:
+            # Si fue muy corto y no disparó trigger, buscar ahora
+            query = SearchKnowledgeQuery(query_text=final_text)
+            kb_context = await self.command_bus.execute_query(query)
+            
+        return final_text, kb_context
+
+    async def _process_llm_stream(self, llm_stream: AsyncGenerator[str, None], user_text: str) -> AsyncGenerator[str, None]:
+        """
+        Consume el stream del LLM. Si detecta una llamada a función, la ejecuta
+        y genera la respuesta textual del resultado. Si es texto, lo pasa.
+        """
+        full_response_text = []
+        function_call_detected = False
+        
+        async for chunk in llm_stream:
+            if chunk.startswith("__FUNCTION_CALL__:"):
+                function_call_detected = True
+                json_str = chunk.replace("__FUNCTION_CALL__:", "")
+                
+                try:
+                    fc_data = json.loads(json_str)
+                    print(f"⚡ Ejecutando Herramienta: {fc_data['name']}")
+                    
+                    # Ejecutar lógica de negocio
+                    result_text = await self._execute_tool(fc_data['name'], fc_data['args'])
+                    
+                    # Yield del resultado para que el TTS lo diga
+                    yield result_text
+                    full_response_text.append(result_text)
+                    
+                except Exception as e:
+                    print(f"✗ Error ejecutando herramienta: {e}")
+                    err_msg = "Tuve un problema técnico al procesar tu solicitud."
+                    yield err_msg
+                    full_response_text.append(err_msg)
+            else:
+                # Texto normal
+                yield chunk
+                full_response_text.append(chunk)
+        
+        # Guardar en historial DESPUÉS del loop (no en finally con await)
+        complete_text = "".join(full_response_text)
+        if complete_text and self.conversation:
+            self.conversation.add_message(Message(complete_text, MessageRole.ASSISTANT))
+        
+        # Log Interaction via Command Bus (sin await en generator)
+        # Usamos create_task para fire-and-forget sin bloquear
+        if complete_text:
+            intent = "FUNCTION_CALL" if function_call_detected else "INFO"
+            cmd = LogInteractionCommand(user_text=user_text, intent=intent, response_text=complete_text)
+            asyncio.create_task(self.command_bus.execute_command(cmd))
+
+    async def _execute_tool(self, name: str, args: dict) -> str:
+        """Dispatcher de herramientas"""
+        if name == "make_booking":
+            return await self._tool_make_booking(args)
+        elif name == "check_in_info":
+            return "El check-in es a partir de las 15:00 horas. Necesitarás tu documento de identidad."
+        elif name == "contact_support":
+            return "Puedes marcar el 9 desde tu habitación para hablar con recepción."
+        else:
+            return "No puedo realizar esa acción por el momento."
+
+    async def _tool_make_booking(self, args: dict) -> str:
+        """Lógica de reserva"""
+        date = args.get("date", "hoy")
+        time_val = args.get("time", "20:00")
+        people = args.get("people", 2)
+        
+        # Persistencia via Command Bus
+        cmd = SaveBookingCommand(booking_data={
+            "name": "Usuario Voz (Context)",
+            "date": f"{date} {time_val}",
+            "people": people
+        })
+        await self.command_bus.execute_command(cmd)
+            
+        # Guardar en Contexto (Memoria a Largo Plazo)
+        if self.context:
+            self.context.set_state("last_booking", {"date": date, "time": time_val})
+            
+        return f"¡Listo! He reservado mesa para {people} personas el {date} a las {time_val}."
+
+    async def _quick_tts_stream(self, text: str) -> AsyncGenerator[bytes, None]:
+        """Helper para respuestas rápidas"""
+        cmd = SynthesizeTTSCommand(text_stream=self._async_iter([text]))
+        tts_resp = await self.command_bus.execute_command(cmd)
+        async for chunk in tts_resp:
+            yield chunk
+
+    async def _async_iter(self, items: list) -> AsyncGenerator[str, None]:
+        for item in items:
+            yield item
+
     def set_conversation(self, conversation: Conversation) -> None:
-        """
-        Establece la conversación activa.
-        
-        Args:
-            conversation: Instancia de Conversation
-        """
         self.conversation = conversation
+        # Inicializar contexto si no existe
+        if conversation and not self.context:
+            self.context = ConversationContext(conversation.session_id)
     
     def get_conversation(self) -> Optional[Conversation]:
-        """
-        Retorna la conversación activa.
-        
-        Returns:
-            Conversación actual o None
-        """
         return self.conversation

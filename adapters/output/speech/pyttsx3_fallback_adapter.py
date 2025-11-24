@@ -3,6 +3,7 @@ import asyncio
 import time
 import tempfile
 import os
+from typing import AsyncGenerator
 
 from app.ports.output.tts_port import TTSPort, TTSRequest, TTSResponse
 
@@ -91,7 +92,22 @@ class Pyttsx3FallbackAdapter(TTSPort):
             pass
         
         return audio_bytes
-    
+
+    async def synthesize_stream(self, text_stream: AsyncGenerator[str, None]) -> AsyncGenerator[bytes, None]:
+        """
+        Implementación dummy de streaming para pyttsx3.
+        Acumula todo el texto y sintetiza al final (no es verdadero streaming).
+        """
+        full_text = ""
+        async for chunk in text_stream:
+            full_text += chunk
+            
+        if full_text:
+            # Reutilizamos la lógica de synthesize
+            request = TTSRequest(text=full_text)
+            response = await self.synthesize(request)
+            yield response.audio_bytes
+
     async def health_check(self) -> bool:
         """Siempre disponible (local)"""
         return self.engine is not None
